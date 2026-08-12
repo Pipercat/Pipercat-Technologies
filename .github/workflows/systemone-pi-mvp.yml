@@ -1,0 +1,25 @@
+name: SystemONE Pi MVP
+
+on:
+  pull_request:
+    paths:
+      - 'mvp/systemone-pi/**'
+      - '.github/workflows/systemone-pi-mvp.yml'
+  push:
+    paths:
+      - 'mvp/systemone-pi/**'
+      - '.github/workflows/systemone-pi-mvp.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mvp/systemone-pi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm run check
+      - run: npm test
