@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SystemONE Pi · MVP</title>
+  <title>SystemONE Pi · MVP v0.2</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -32,24 +32,31 @@
 
       <section id="setup" class="setup-card">
         <div>
-          <p class="eyebrow">ERSTEINRICHTUNG</p>
-          <h2>Philips Hue verbinden</h2>
-          <p class="muted">SystemONE hat eine Bridge im lokalen Netzwerk gefunden. Bestätige die Kopplung nach dem Tastendruck auf der Bridge.</p>
+          <p class="eyebrow">ERSTEINRICHTUNG · V0.2</p>
+          <h2>Philips Hue lokal verbinden</h2>
+          <p class="muted">SystemONE sucht die Bridge direkt im lokalen Netzwerk. Nach dem Fund drückst du die Link-Taste auf der Bridge und bestätigst die Kopplung.</p>
         </div>
         <div class="setup-actions">
-          <div id="bridgeStatus" class="bridge-chip">Suche Bridge …</div>
+          <div id="bridgeStatus" class="bridge-chip">Bridge-Status wird geladen …</div>
           <button id="pairAdmin" class="secondary">Admin koppeln</button>
-          <button id="pairHue" class="primary">Hue verbinden</button>
+          <button id="pairHue" class="primary">Hue suchen</button>
         </div>
       </section>
 
-      <section class="section-head"><div><p class="eyebrow">RÄUME & GERÄTE</p><h2>Dein Zuhause</h2></div><button id="refresh" class="secondary">Aktualisieren</button></section>
+      <section class="section-head">
+        <div><p class="eyebrow">RÄUME & GERÄTE</p><h2>Dein Zuhause</h2></div>
+        <div class="room-actions">
+          <input id="newRoomName" maxlength="60" placeholder="Neuer Raum" aria-label="Neuen Raum benennen" />
+          <button id="addRoom" class="secondary">Raum anlegen</button>
+          <button id="refresh" class="secondary">Synchronisieren</button>
+        </div>
+      </section>
       <section id="rooms" class="room-grid"></section>
 
       <section class="info-grid">
-        <article><p class="eyebrow">MODULE</p><h3>YouDo</h3><p class="muted">Kalender und Aufgaben sind für die nächste MVP-Stufe vorbereitet.</p><button disabled>Demnächst aktivieren</button></article>
+        <article><p class="eyebrow">MODULE</p><h3>YouDo</h3><p class="muted">Kalender und Aufgaben sind für eine spätere MVP-Stufe vorbereitet.</p><button disabled>Demnächst aktivieren</button></article>
         <article><p class="eyebrow">AUTOMATIONEN</p><h3>Vorlagen</h3><p class="muted">Einfache Automationen statt Experteneditor – passend zum Pilotumfang.</p><button disabled>Vorlagen öffnen</button></article>
-        <article><p class="eyebrow">SICHERHEIT</p><h3>Lokaler Betrieb</h3><p class="muted">Die Demo verwendet nur den lokalen Node-Prozess. Kein Konto, kein Telemetrie-Backend.</p><span class="safe">✓ lokal</span></article>
+        <article><p class="eyebrow">SICHERHEIT</p><h3>Lokaler Betrieb</h3><p class="muted">Hue-Zustände, Räume und Gerätenamen bleiben lokal auf dem SystemONE Pi. Keine Pipercat-Cloud ist erforderlich.</p><span class="safe">✓ local-first</span></article>
       </section>
     </main>
   </div>
