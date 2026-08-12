@@ -1,4 +1,4 @@
-const assert=require('assert');const fs=require('fs');const os=require('os');const path=require('path');const {LocalStorage}=require('../lib/storage');const {HueAdapter}=require('../lib/hue');const {Diagnostics}=require('../lib/diagnostics');
+const assert=require('assert');const fs=require('fs');const os=require('os');const path=require('path');const {LocalStorage}=require('../lib/storage');const {HueAdapter}=require('../lib/hue');const {Diagnostics}=require('../lib/diagnostics');const {ReconnectController}=require('../lib/reconnect');
 const demo=[{id:'hue-1',hueId:'1',integration:'hue',type:'light',name:'Testlicht',online:true,on:false,brightness:50}];
 async function adapter(fault=''){process.env.HUE_MODE='simulation';process.env.HUE_SIM_FAULT=fault;const dir=fs.mkdtempSync(path.join(os.tmpdir(),'systemone-test-'));const storage=new LocalStorage(dir);return {hue:new HueAdapter({storage,demoDevices:demo,diagnostics:new Diagnostics()}),dir}}
 (async()=>{let passed=0;async function test(name,fn){try{await fn();passed++;console.log(`✓ ${name}`)}catch(e){console.error(`✗ ${name}: ${e.message}`);process.exitCode=1}}
@@ -10,4 +10,6 @@ await test('Auth-Fehler',async()=>{const {hue}=await adapter('auth');await hue.d
 await test('Offline-Gerät',async()=>{const {hue}=await adapter('offline');await hue.discover();await hue.pair();const lights=await hue.fetchLights();assert.equal(lights[0].online,false)});
 await test('Befehlsfehler',async()=>{const {hue}=await adapter('command');await hue.discover();await hue.pair();await assert.rejects(()=>hue.setLight(demo[0],{on:true}),e=>e.code==='HUE_COMMAND_FAILED')});
 await test('Persistenz schreibt und liest Zustand',async()=>{const {dir}=await adapter();const s=new LocalStorage(dir);s.saveState({ok:true});assert.equal(s.loadState({}).ok,true)});
-console.log(`\n${passed}/8 Tests bestanden`);if(passed!==8)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
+await test('Reconnect wechselt nach Fehler in Backoff',async()=>{const r=new ReconnectController({minDelayMs:1,maxDelayMs:2});r.failure({code:'HUE_TIMEOUT'});assert.equal(r.state,'backoff');assert.equal(r.attempt,1);assert.equal(r.lastErrorCode,'HUE_TIMEOUT')});
+await test('Reconnect setzt sich nach Erfolg zurück',async()=>{const r=new ReconnectController({minDelayMs:1,maxDelayMs:2});r.failure({code:'HUE_TIMEOUT'});r.success();assert.equal(r.state,'connected');assert.equal(r.attempt,0);assert.equal(r.nextRetryAt,null)});
+console.log(`\n${passed}/10 Tests bestanden`);if(passed!==10)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
