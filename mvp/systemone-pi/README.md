@@ -65,6 +65,10 @@ Local-first Core mit normalisiertem Device Model. Standardmäßig läuft alles i
 - Offline-Karten mit Ursache, Handlungsempfehlung und Wiederholen-Aktion
 - responsive Kartenraster und touchfreundliche Bedienelemente
 - gemeinsame Design-Tokens als Grundlage für Clear, Midnight, Compact und Living
+- persistente Theme-Auswahl mit produktivem Clear und Midnight
+- Midnight mit dunkelblauem Verlauf, transparenten Rahmen und Display-Kontrast
+- Compact und Living bleiben sichtbar angekündigt, aber bis zur Fertigstellung gesperrt
+- mobile schwebende Navigation für Home, Räume, Abläufe und Mehr
 
 ## Sicherheitsregel
 
@@ -152,6 +156,8 @@ HUE_SIM_FAULT=command npm start
 - `GET /api/automations/scheduler`
 - `GET /api/home`
 - `PATCH /api/home`
+- `GET /api/themes`
+- `PATCH /api/settings/theme`
 
 ## Aktuelle Core-Selftests
 
@@ -195,6 +201,8 @@ HUE_SIM_FAULT=command npm start
 38. lokale Sonnenzeitberechnung
 39. validierte Backup-Zusammenfassung
 40. Abweisung manipulierter Backup-Zusammenfassung
+41. verfügbare Clear-/Midnight-Themes
+42. Sperre unfertiger Themes
 
 ## Noch nicht produktionsreif
 

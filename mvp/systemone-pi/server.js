@@ -16,6 +16,7 @@ const { createBackup, validateBackup, summarizeBackup } = require('./lib/backup'
 const { AutomationEngine, TEMPLATES, validateAutomation } = require('./lib/automations');
 const { AutomationScheduler } = require('./lib/scheduler');
 const { validateLocation, calculateSolarEvents } = require('./lib/solar');
+const { THEMES, validateTheme } = require('./lib/themes');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -206,6 +207,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/setup') return json(res, 200, setupStatus());
     if (req.method === 'GET' && url.pathname === '/api/profiles') return json(res, 200, DEVICE_PROFILES);
     if (req.method === 'GET' && url.pathname === '/api/system') return json(res, 200, state.system);
+    if (req.method === 'GET' && url.pathname === '/api/themes') return json(res, 200, THEMES);
+    if (req.method === 'PATCH' && url.pathname === '/api/settings/theme') { const body = await readBody(req); state.onboarding.selectedTheme = validateTheme(body.theme); persist(); return json(res, 200, { selectedTheme: state.onboarding.selectedTheme }); }
     if (req.method === 'GET' && url.pathname === '/api/home') return json(res, 200, state.home);
     if (req.method === 'PATCH' && url.pathname === '/api/home') { const body = await readBody(req); if (typeof body.name === 'string' && body.name.trim()) state.home.name = body.name.trim().slice(0, 80); if (body.location !== undefined) state.home.location = body.location === null ? null : validateLocation(body.location); persist(); return json(res, 200, state.home); }
     if (req.method === 'GET' && url.pathname === '/api/state') { if (url.searchParams.get('sync') === '1' && reconnect.state !== 'backoff') await syncHue(); updateReconnectState(); return json(res, 200, publicState()); }

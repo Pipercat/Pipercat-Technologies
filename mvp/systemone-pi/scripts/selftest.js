@@ -4,6 +4,7 @@ const {createBackup,validateBackup,summarizeBackup}=require('../lib/backup');
 const {AutomationEngine,compare,fromTemplate}=require('../lib/automations');
 const {AutomationScheduler}=require('../lib/scheduler');
 const {validateLocation,calculateSolarEvents}=require('../lib/solar');
+const {THEMES,validateTheme}=require('../lib/themes');
 const demo=[{id:'hue-1',hueId:'1',integration:'hue',type:'light',name:'Testlicht',online:true,on:false,brightness:50}];
 async function adapter(fault=''){process.env.HUE_MODE='simulation';process.env.HUE_SIM_FAULT=fault;const dir=fs.mkdtempSync(path.join(os.tmpdir(),'systemone-test-'));const storage=new LocalStorage(dir);return {hue:new HueAdapter({storage,demoDevices:demo,diagnostics:new Diagnostics()}),dir}}
 (async()=>{let passed=0;async function test(name,fn){try{await fn();passed++;console.log(`✓ ${name}`)}catch(e){console.error(`✗ ${name}: ${e.message}`);process.exitCode=1}}
@@ -47,4 +48,6 @@ await test('Standortvalidierung begrenzt Koordinaten',async()=>{assert.deepEqual
 await test('Sonnenzeiten werden vollständig lokal berechnet',async()=>{const events=calculateSolarEvents(new Date('2026-08-12T12:00:00Z'),{latitude:52.52,longitude:13.405});assert.ok(events.sunrise instanceof Date);assert.ok(events.sunset instanceof Date);assert.ok(events.sunrise<events.sunset);assert.ok(events.sunrise.getUTCHours()>=2&&events.sunrise.getUTCHours()<=6);assert.ok(events.sunset.getUTCHours()>=17&&events.sunset.getUTCHours()<=20)});
 await test('Backup-Zusammenfassung folgt erfolgreicher Vollvalidierung',async()=>{const backup=createBackup({rooms:[{id:'living',name:'Wohnzimmer'}],devices:[],onboarding:{selectedTheme:'Clear'}}),summary=summarizeBackup(backup);assert.equal(summary.valid,true);assert.equal(summary.rooms,1);assert.equal(summary.checksum,backup.checksum)});
 await test('Backup-Zusammenfassung lehnt Manipulation ab',async()=>{const backup=createBackup({rooms:[],devices:[],onboarding:{}});backup.data.rooms.push({id:'x',name:'X'});assert.throws(()=>summarizeBackup(backup),e=>e.code==='BACKUP_INVALID')});
-console.log(`\n${passed}/40 Tests bestanden`);if(passed!==40)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
+await test('Clear und Midnight sind verfügbare Themes',async()=>{assert.equal(validateTheme('Clear'),'Clear');assert.equal(validateTheme('Midnight'),'Midnight');assert.equal(THEMES.Midnight.available,true)});
+await test('Unfertige Themes bleiben gesperrt',async()=>{assert.throws(()=>validateTheme('Compact'),e=>e.code==='THEME_INVALID');assert.throws(()=>validateTheme('Living'),e=>e.code==='THEME_INVALID')});
+console.log(`\n${passed}/42 Tests bestanden`);if(passed!==42)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
