@@ -17,6 +17,7 @@ const { AutomationEngine, TEMPLATES, validateAutomation } = require('./lib/autom
 const { AutomationScheduler } = require('./lib/scheduler');
 const { validateLocation, calculateSolarEvents } = require('./lib/solar');
 const { THEMES, validateTheme } = require('./lib/themes');
+const { availableIntegrations, validateOnboardingRequest } = require('./lib/device-onboarding');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -206,6 +207,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/diagnostics') return json(res, 200, { ...diagnostics.report(state, hue), reconnect: reconnect.snapshot() });
     if (req.method === 'GET' && url.pathname === '/api/setup') return json(res, 200, setupStatus());
     if (req.method === 'GET' && url.pathname === '/api/profiles') return json(res, 200, DEVICE_PROFILES);
+    if (req.method === 'GET' && url.pathname === '/api/device-onboarding/integrations') return json(res, 200, availableIntegrations(hue.mode));
+    if (req.method === 'POST' && url.pathname === '/api/device-onboarding/complete') { const input = validateOnboardingRequest(await readBody(req), state.rooms); const device = simulation.create(input); registry.upsert(device); persist(); return json(res, 201, { device: publicDevice(device), test: { success: true, message: 'Gerät antwortet und ist bereit.' } }); }
     if (req.method === 'GET' && url.pathname === '/api/system') return json(res, 200, state.system);
     if (req.method === 'GET' && url.pathname === '/api/themes') return json(res, 200, THEMES);
     if (req.method === 'PATCH' && url.pathname === '/api/settings/theme') { const body = await readBody(req); state.onboarding.selectedTheme = validateTheme(body.theme); persist(); return json(res, 200, { selectedTheme: state.onboarding.selectedTheme }); }

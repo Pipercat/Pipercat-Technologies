@@ -70,6 +70,14 @@ Local-first Core mit normalisiertem Device Model. Standardmäßig läuft alles i
 - Compact und Living bleiben sichtbar angekündigt, aber bis zur Fertigstellung gesperrt
 - mobile schwebende Navigation für Home, Räume, Abläufe und Mehr
 
+## Geführter Geräteassistent
+
+- vier verständliche Schritte: Integration, Gerätetyp, Raum/Name und Funktionstest
+- Simulation ist im Entwicklungsmodus die empfohlene und einzige aktive Integration
+- Hue bleibt bei `HUE_MODE=simulation` sichtbar erklärt, aber nicht auswählbar
+- Geräteprofil und Raum werden serverseitig validiert
+- Abschluss erstellt automatisch die normalisierte Gerätekarte
+
 ## Sicherheitsregel
 
 ```bash
@@ -158,6 +166,8 @@ HUE_SIM_FAULT=command npm start
 - `PATCH /api/home`
 - `GET /api/themes`
 - `PATCH /api/settings/theme`
+- `GET /api/device-onboarding/integrations`
+- `POST /api/device-onboarding/complete`
 
 ## Aktuelle Core-Selftests
 
@@ -203,6 +213,8 @@ HUE_SIM_FAULT=command npm start
 40. Abweisung manipulierter Backup-Zusammenfassung
 41. verfügbare Clear-/Midnight-Themes
 42. Sperre unfertiger Themes
+43. hardware-sichere Integrationsauswahl
+44. Validierung des Geräteassistenten
 
 ## Noch nicht produktionsreif
 

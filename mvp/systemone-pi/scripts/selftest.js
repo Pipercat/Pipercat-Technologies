@@ -5,6 +5,7 @@ const {AutomationEngine,compare,fromTemplate}=require('../lib/automations');
 const {AutomationScheduler}=require('../lib/scheduler');
 const {validateLocation,calculateSolarEvents}=require('../lib/solar');
 const {THEMES,validateTheme}=require('../lib/themes');
+const {availableIntegrations,validateOnboardingRequest}=require('../lib/device-onboarding');
 const demo=[{id:'hue-1',hueId:'1',integration:'hue',type:'light',name:'Testlicht',online:true,on:false,brightness:50}];
 async function adapter(fault=''){process.env.HUE_MODE='simulation';process.env.HUE_SIM_FAULT=fault;const dir=fs.mkdtempSync(path.join(os.tmpdir(),'systemone-test-'));const storage=new LocalStorage(dir);return {hue:new HueAdapter({storage,demoDevices:demo,diagnostics:new Diagnostics()}),dir}}
 (async()=>{let passed=0;async function test(name,fn){try{await fn();passed++;console.log(`✓ ${name}`)}catch(e){console.error(`✗ ${name}: ${e.message}`);process.exitCode=1}}
@@ -50,4 +51,6 @@ await test('Backup-Zusammenfassung folgt erfolgreicher Vollvalidierung',async()=
 await test('Backup-Zusammenfassung lehnt Manipulation ab',async()=>{const backup=createBackup({rooms:[],devices:[],onboarding:{}});backup.data.rooms.push({id:'x',name:'X'});assert.throws(()=>summarizeBackup(backup),e=>e.code==='BACKUP_INVALID')});
 await test('Clear und Midnight sind verfügbare Themes',async()=>{assert.equal(validateTheme('Clear'),'Clear');assert.equal(validateTheme('Midnight'),'Midnight');assert.equal(THEMES.Midnight.available,true)});
 await test('Unfertige Themes bleiben gesperrt',async()=>{assert.throws(()=>validateTheme('Compact'),e=>e.code==='THEME_INVALID');assert.throws(()=>validateTheme('Living'),e=>e.code==='THEME_INVALID')});
-console.log(`\n${passed}/42 Tests bestanden`);if(passed!==42)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
+await test('Geräteassistent bleibt im Standard hardware-sicher',async()=>{const integrations=availableIntegrations('simulation');assert.equal(integrations.find(x=>x.id==='simulation').available,true);assert.equal(integrations.find(x=>x.id==='hue').available,false)});
+await test('Geräteassistent validiert Profil, Raum und Namen',async()=>{const result=validateOnboardingRequest({integration:'simulation',profile:'light',name:' Stehlampe ',roomId:'living'},[{id:'living'}]);assert.deepEqual(result,{integration:'simulation',profile:'light',name:'Stehlampe',roomId:'living'});assert.throws(()=>validateOnboardingRequest({integration:'simulation',profile:'light',name:'X',roomId:'missing'},[]),e=>e.code==='DEVICE_ONBOARDING_INVALID')});
+console.log(`\n${passed}/44 Tests bestanden`);if(passed!==44)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
