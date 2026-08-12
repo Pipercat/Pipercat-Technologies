@@ -6,7 +6,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100vh; background: linear-gradient(135deg, #f7f9fc, #edf1f7); }
-button { font: inherit; }
+button, input, select { font: inherit; }
 .app-shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
 .sidebar { background: rgba(255,255,255,.92); border-right: 1px solid #dfe5ee; padding: 28px 20px; display: flex; flex-direction: column; gap: 30px; }
 .sidebar > div:first-child { display: flex; align-items: center; gap: 12px; }
@@ -36,16 +36,21 @@ button.primary { background: #edf4ff; color: #244f9a; }
 button.secondary { background: white; color: #344057; border: 1px solid #dce3ec; }
 button:disabled { cursor: not-allowed; background: #edf0f4; color: #9ca6b5; }
 .section-head { margin: 36px 0 16px; }
-.room-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.room-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; }
 .room-card, .info-grid article { background: rgba(255,255,255,.93); border: 1px solid #e0e6ee; border-radius: 20px; padding: 20px; box-shadow: 0 8px 22px rgba(45,63,90,.05); }
 .room-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .device-list { display: grid; gap: 10px; }
-.device { border: 1px solid #e3e8ef; border-radius: 16px; padding: 14px; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; }
-.device.offline { background: #f7f7f8; opacity: .72; }
+.device { border: 1px solid #e3e8ef; border-radius: 16px; padding: 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: center; }
+.device.offline { background: #f7f7f8; }
+.device-main { min-width: 0; }
+.device-heading { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .device-name { font-weight: 800; }
 .device-meta { font-size: 13px; color: #7d899a; margin-top: 3px; }
+.device-edit { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(125px, .8fr) auto; gap: 7px; margin-top: 11px; }
+.device-edit input, .device-edit select { width: 100%; min-width: 0; border: 1px solid #dce3ec; background: white; color: #344057; border-radius: 10px; padding: 9px 10px; }
+.device-edit button { padding: 9px 11px; }
 .controls { display: flex; align-items: center; gap: 10px; }
-.switch { width: 48px; height: 28px; padding: 3px; border-radius: 999px; background: #ccd4df; border: 0; }
+.switch { width: 48px; height: 28px; padding: 3px; border-radius: 999px; background: #ccd4df; border: 0; flex: 0 0 auto; }
 .switch::after { content: ''; display: block; width: 22px; height: 22px; border-radius: 50%; background: white; transition: transform .18s; }
 .switch.on { background: #406dc4; }
 .switch.on::after { transform: translateX(20px); }
@@ -56,8 +61,12 @@ button:disabled { cursor: not-allowed; background: #edf0f4; color: #9ca6b5; }
 .info-grid article { min-height: 180px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 .info-grid article button, .safe { margin-top: auto; }
 .safe { color: #278653; font-weight: 800; }
-.toast { position: fixed; right: 24px; bottom: 24px; transform: translateY(120px); opacity: 0; transition: .2s; padding: 13px 16px; border-radius: 12px; background: #172238; color: white; box-shadow: 0 12px 30px rgba(0,0,0,.18); }
+.toast { position: fixed; right: 24px; bottom: 24px; transform: translateY(120px); opacity: 0; transition: .2s; padding: 13px 16px; border-radius: 12px; background: #172238; color: white; box-shadow: 0 12px 30px rgba(0,0,0,.18); z-index: 20; }
 .toast.show { transform: translateY(0); opacity: 1; }
+@media (max-width: 1050px) {
+  .device { grid-template-columns: 1fr; }
+  .controls { justify-content: flex-end; }
+}
 @media (max-width: 900px) {
   .app-shell { grid-template-columns: 1fr; }
   .sidebar { display: none; }
@@ -65,4 +74,10 @@ button:disabled { cursor: not-allowed; background: #edf0f4; color: #9ca6b5; }
   .setup-card, header { align-items: flex-start; flex-direction: column; }
   .setup-actions { justify-content: flex-start; }
   .info-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .room-grid { grid-template-columns: 1fr; }
+  .device-edit { grid-template-columns: 1fr; }
+  .controls { justify-content: space-between; }
+  .brightness { width: min(180px, 60vw); }
 }
