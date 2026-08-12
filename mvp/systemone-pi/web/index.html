@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SystemONE Pi · MVP</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div>
+        <div class="brand-mark">S1</div>
+        <div class="brand-copy"><strong>SystemONE</strong><span>Pi · lokal</span></div>
+      </div>
+      <nav>
+        <button class="nav-item active">Übersicht</button>
+        <button class="nav-item">Räume</button>
+        <button class="nav-item">Geräte</button>
+        <button class="nav-item">Automationen</button>
+        <button class="nav-item">YouDo</button>
+        <button class="nav-item">Einstellungen</button>
+      </nav>
+      <div class="privacy-card"><span class="dot"></span><div><strong>Local-first</strong><small>Keine Pipercat-Cloud aktiv</small></div></div>
+    </aside>
+
+    <main>
+      <header>
+        <div><p class="eyebrow">ZUHAUSE</p><h1>Guten Abend</h1><p class="muted">Dein System läuft lokal und ist erreichbar.</p></div>
+        <div class="status-pill"><span class="dot"></span> System online</div>
+      </header>
+
+      <section id="setup" class="setup-card">
+        <div>
+          <p class="eyebrow">ERSTEINRICHTUNG</p>
+          <h2>Philips Hue verbinden</h2>
+          <p class="muted">SystemONE hat eine Bridge im lokalen Netzwerk gefunden. Bestätige die Kopplung nach dem Tastendruck auf der Bridge.</p>
+        </div>
+        <div class="setup-actions">
+          <div id="bridgeStatus" class="bridge-chip">Suche Bridge …</div>
+          <button id="pairAdmin" class="secondary">Admin koppeln</button>
+          <button id="pairHue" class="primary">Hue verbinden</button>
+        </div>
+      </section>
+
+      <section class="section-head"><div><p class="eyebrow">RÄUME & GERÄTE</p><h2>Dein Zuhause</h2></div><button id="refresh" class="secondary">Aktualisieren</button></section>
+      <section id="rooms" class="room-grid"></section>
+
+      <section class="info-grid">
+        <article><p class="eyebrow">MODULE</p><h3>YouDo</h3><p class="muted">Kalender und Aufgaben sind für die nächste MVP-Stufe vorbereitet.</p><button disabled>Demnächst aktivieren</button></article>
+        <article><p class="eyebrow">AUTOMATIONEN</p><h3>Vorlagen</h3><p class="muted">Einfache Automationen statt Experteneditor – passend zum Pilotumfang.</p><button disabled>Vorlagen öffnen</button></article>
+        <article><p class="eyebrow">SICHERHEIT</p><h3>Lokaler Betrieb</h3><p class="muted">Die Demo verwendet nur den lokalen Node-Prozess. Kein Konto, kein Telemetrie-Backend.</p><span class="safe">✓ lokal</span></article>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="/app.js"></script>
+</body>
+</html>
