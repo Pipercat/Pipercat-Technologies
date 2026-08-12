@@ -46,10 +46,21 @@ class HueAdapter {
   }
 
   rememberBridge(bridge) {
+    const previousBridgeId = this.secrets.hueBridge?.id;
+    if (previousBridgeId && previousBridgeId !== bridge.id) {
+      this.username = null;
+      delete this.secrets.hueUsername;
+      delete this.secrets.huePairedBridgeId;
+    }
     this.bridge = bridge;
     this.secrets.hueBridge = bridge;
     this.storage.saveSecrets(this.secrets);
     return bridge;
+  }
+
+  isPairedWithCurrentBridge() {
+    if (this.bridge?.mock) return Boolean(this.username);
+    return Boolean(this.username && this.bridge?.id && this.secrets.huePairedBridgeId === this.bridge.id);
   }
 
   async verifyBridge(ip) {
@@ -71,6 +82,7 @@ class HueAdapter {
     return new Promise(resolve => {
       const socket = dgram.createSocket('udp4');
       const found = new Set();
+      let finished = false;
       const message = Buffer.from([
         'M-SEARCH * HTTP/1.1',
         'HOST: 239.255.255.250:1900',
@@ -79,7 +91,12 @@ class HueAdapter {
         'ST: upnp:rootdevice',
         '', ''
       ].join('\r\n'));
-      const finish = () => { try { socket.close(); } catch {} resolve([...found]); };
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        try { socket.close(); } catch {}
+        resolve([...found]);
+      };
       socket.on('message', msg => {
         const location = msg.toString().match(/^LOCATION:\s*(.+)$/im)?.[1]?.trim();
         if (location) found.add(location);
@@ -98,6 +115,9 @@ class HueAdapter {
     if (!this.bridge) throw Object.assign(new Error('Keine Hue Bridge gefunden.'), { code: 'HUE_NOT_FOUND' });
     if (this.bridge.mock) {
       this.username = 'demo-user';
+      this.secrets.hueUsername = this.username;
+      this.secrets.huePairedBridgeId = this.bridge.id;
+      this.storage.saveSecrets(this.secrets);
       return { paired: true, bridge: this.bridge };
     }
     const response = await requestWithTimeout(`http://${this.bridge.ip}/api`, {
@@ -113,6 +133,7 @@ class HueAdapter {
     }
     this.username = username;
     this.secrets.hueUsername = username;
+    this.secrets.huePairedBridgeId = this.bridge.id;
     this.storage.saveSecrets(this.secrets);
     return { paired: true, bridge: this.bridge };
   }
@@ -120,25 +141,24 @@ class HueAdapter {
   async fetchLights() {
     if (!this.bridge || !this.username) return [];
     if (this.bridge.mock) return this.demoDevices;
-    try {
-      const response = await requestWithTimeout(`http://${this.bridge.ip}/api/${encodeURIComponent(this.username)}/lights`, {}, 3500);
-      if (!response.ok) throw new Error(`Hue HTTP ${response.status}`);
-      const lights = await response.json();
-      return Object.entries(lights).map(([id, light]) => ({
-        id: `hue-${id}`,
-        hueId: id,
-        integration: 'hue',
-        type: 'light',
-        sourceName: light.name || `Hue ${id}`,
-        name: light.name || `Hue ${id}`,
-        roomId: null,
-        online: light.state?.reachable !== false,
-        on: Boolean(light.state?.on),
-        brightness: Math.max(1, Math.min(100, Math.round(((light.state?.bri || 1) / 254) * 100)))
-      }));
-    } catch (error) {
-      return this.demoDevices.map(device => ({ ...device, online: false, syncError: error.message }));
+    const response = await requestWithTimeout(`http://${this.bridge.ip}/api/${encodeURIComponent(this.username)}/lights`, {}, 3500);
+    if (!response.ok) throw new Error(`Hue HTTP ${response.status}`);
+    const lights = await response.json();
+    if (Array.isArray(lights) && lights[0]?.error) {
+      throw Object.assign(new Error(lights[0].error.description || 'Hue-Zugriff nicht autorisiert.'), { code: 'HUE_UNAUTHORIZED' });
     }
+    return Object.entries(lights).map(([id, light]) => ({
+      id: `hue-${id}`,
+      hueId: id,
+      integration: 'hue',
+      type: 'light',
+      sourceName: light.name || `Hue ${id}`,
+      name: light.name || `Hue ${id}`,
+      roomId: null,
+      online: light.state?.reachable !== false,
+      on: Boolean(light.state?.on),
+      brightness: Math.max(1, Math.min(100, Math.round(((light.state?.bri || 1) / 254) * 100)))
+    }));
   }
 
   async setLight(device, patch) {
