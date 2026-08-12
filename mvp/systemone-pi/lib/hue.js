@@ -1,4 +1,7 @@
 const dgram = require('dgram');
+const { DeviceAdapter } = require('./adapter');
+const { createDevice } = require('./device-model');
+const { validateCapabilities } = require('./capabilities');
 
 function isPrivateIpv4(host) {
   const match = String(host || '').match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
@@ -30,8 +33,9 @@ function redactUrl(url) {
   return String(url).replace(/\/api\/[^/]+\//, '/api/[REDACTED]/');
 }
 
-class HueAdapter {
+class HueAdapter extends DeviceAdapter {
   constructor({ storage, demoDevices = [], diagnostics }) {
+    super('hue');
     this.storage = storage;
     this.demoDevices = demoDevices;
     this.diagnostics = diagnostics;
@@ -155,18 +159,41 @@ class HueAdapter {
     if (this.mode !== 'real') {
       if (this.simFault === 'timeout') throw typedError('HUE_TIMEOUT', 'Simulation: Bridge-Zeitüberschreitung.');
       if (this.simFault === 'auth') throw typedError('HUE_AUTH_ERROR', 'Simulation: Hue-Credential ungültig.');
-      if (this.simFault === 'offline') return this.demoDevices.map(device => ({ ...device, online: false, syncError: 'Simulation: Gerät offline' }));
-      return this.demoDevices.map(device => ({ ...device }));
+      if (this.simFault === 'offline') return this.demoDevices.map(device => this.normalizeLight({ ...device, online: false, syncError: 'Simulation: Gerät offline' }));
+      return this.demoDevices.map(device => this.normalizeLight(device));
     }
     const response = await requestWithTimeout(`http://${this.bridge.ip}/api/${encodeURIComponent(this.username)}/lights`, {}, 3500);
     if (!response.ok) throw typedError('HUE_HTTP_ERROR', `Hue-Lichtliste antwortet mit HTTP ${response.status}.`, { status: response.status });
     const lights = await response.json();
     if (Array.isArray(lights) && lights[0]?.error) throw typedError('HUE_AUTH_ERROR', lights[0].error.description || 'Hue-Zugriff nicht autorisiert.');
-    return Object.entries(lights).map(([id, light]) => ({
+    return Object.entries(lights).map(([id, light]) => this.normalizeLight({
       id: `hue-${id}`, hueId: id, integration: 'hue', type: 'light', sourceName: light.name || `Hue ${id}`,
       name: light.name || `Hue ${id}`, roomId: null, online: light.state?.reachable !== false,
       on: Boolean(light.state?.on), brightness: Math.max(1, Math.min(100, Math.round(((light.state?.bri || 1) / 254) * 100)))
     }));
+  }
+
+  normalizeLight(light) {
+    if (light.profile && light.capabilities) return createDevice(light);
+    return createDevice({
+      id: light.id, integration: 'hue', manufacturer: 'Philips', model: light.model || 'Hue Light', profile: 'light',
+      name: light.name, roomId: light.roomId || null, online: light.online !== false,
+      availability: light.online === false ? 'offline' : 'online', compatibility: 'certified',
+      capabilities: { power: Boolean(light.on), brightness: Number.isFinite(light.brightness) ? light.brightness : 1 },
+      diagnostics: { lastSeen: light.online === false ? null : new Date().toISOString(), lastError: light.syncError || null },
+      adapterData: { hueId: light.hueId }
+    });
+  }
+
+  async listDevices() { return this.fetchLights(); }
+
+  async applyCapabilities(device, patch) {
+    const capabilities = validateCapabilities('light', patch, { partial: true });
+    const legacy = {};
+    if (typeof capabilities.power === 'boolean') legacy.on = capabilities.power;
+    if (Number.isFinite(capabilities.brightness)) legacy.brightness = capabilities.brightness;
+    const updated = await this.setLight(device, legacy);
+    return { power: Boolean(updated.on), brightness: Number.isFinite(updated.brightness) ? updated.brightness : device.capabilities.brightness };
   }
 
   async setLight(device, patch) {
@@ -180,7 +207,8 @@ class HueAdapter {
     if (typeof patch.on === 'boolean') body.on = patch.on;
     if (Number.isFinite(patch.brightness)) body.bri = Math.max(1, Math.min(254, Math.round((patch.brightness / 100) * 254)));
     if (!Object.keys(body).length) return device;
-    const response = await requestWithTimeout(`http://${this.bridge.ip}/api/${encodeURIComponent(this.username)}/lights/${encodeURIComponent(device.hueId)}/state`, {
+    const hueId = device.adapterData?.hueId || device.hueId;
+    const response = await requestWithTimeout(`http://${this.bridge.ip}/api/${encodeURIComponent(this.username)}/lights/${encodeURIComponent(hueId)}/state`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     }, 3500);
     if (!response.ok) throw typedError('HUE_HTTP_ERROR', `Hue-Befehl antwortet mit HTTP ${response.status}.`, { status: response.status });

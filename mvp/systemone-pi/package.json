@@ -1,12 +1,12 @@
 {
   "name": "systemone-pi-mvp",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "description": "Local-first SystemONE Pi MVP with hardware-safe simulation, diagnostics and guided onboarding",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "check": "node --check server.js && node --check lib/hue.js && node --check lib/storage.js && node --check lib/diagnostics.js && node --check lib/reconnect.js && node --check web/app.js && node --check scripts/selftest.js",
+    "check": "node --check server.js && for file in lib/*.js web/*.js scripts/*.js; do node --check \"$file\"; done",
     "test": "node scripts/selftest.js"
   },
   "dependencies": {

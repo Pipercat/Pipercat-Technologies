@@ -1,6 +1,18 @@
-# SystemONE Pi MVP v0.3.1
+# SystemONE Pi Core v0.4.0
 
-Hardware-sichere Entwicklungs- und Diagnoseversion von SystemONE. Standardmäßig läuft alles in Simulation; das produktive Philips-Hue-System wird nicht angesprochen.
+Local-first Core mit normalisiertem Device Model. Standardmäßig läuft alles in Simulation; das produktive Philips-Hue-System wird nicht angesprochen.
+
+## Neu in v0.4.0
+
+- herstellerunabhängiges Device Model mit `profile`, `availability`, `compatibility`, `capabilities` und `diagnostics`
+- Capability-Layer mit profilbezogener Validierung und Wertebegrenzung
+- gemeinsames Adapter-Interface für Discovery, Pairing, Geräteliste und Befehle
+- Hue- und Simulation-Adapter liefern dasselbe normalisierte Modell
+- zentrale Geräte-Registry mit Geräteereignissen
+- API und Weboberfläche verwenden ausschließlich normalisierte Capabilities wie `power` und `brightness`
+- automatische Migration vorhandener v0.3.1-Geräte beim Laden
+- interne Adapterdaten werden nicht über Geräte-Endpunkte ausgegeben
+- 17 hardwarefreie Selftests
 
 ## Sicherheitsregel
 
@@ -14,7 +26,7 @@ startet im Simulationsmodus. Echte Hue-Kommunikation wird ausschließlich bewuss
 HUE_MODE=real npm start
 ```
 
-## Neu in v0.3.1
+## Aus v0.3.1 übernommen
 
 - Reconnect-Zustandsmaschine mit `idle`, `connected`, `backoff` und `reconnecting`
 - exponentieller Retry-Backoff mit Jitter statt aggressiver Endlosschleifen
@@ -58,7 +70,7 @@ HUE_SIM_FAULT=offline npm start
 HUE_SIM_FAULT=command npm start
 ```
 
-## API v0.3.1
+## API v0.4.0
 
 - `GET /api/health`
 - `GET /api/diagnostics`
@@ -79,7 +91,7 @@ HUE_SIM_FAULT=command npm start
 - `GET /api/backup`
 - `POST /api/backup/restore`
 
-## Aktuelle Selftests
+## Aktuelle Core-Selftests
 
 1. kein Zugriff auf eine echte Bridge im Simulationsmodus
 2. Bridge nicht gefunden
@@ -91,6 +103,13 @@ HUE_SIM_FAULT=command npm start
 8. Persistenz
 9. Reconnect wechselt in Backoff
 10. erfolgreicher Reconnect setzt Backoff zurück
+11. Capability-Normalisierung
+12. Abweisung profilfremder Capabilities
+13. Migration alter Geräte
+14. Redaktion interner Adapterdaten
+15. Registry-Ereignisse
+16. normalisierte Simulation
+17. normalisierte Hue-Simulation
 
 ## Noch nicht produktionsreif
 
@@ -98,8 +117,7 @@ Vor Kundeneinsatz fehlen weiterhin TLS/Reverse-Proxy-Härtung, echtes Berechtigu
 
 ## Danach
 
-- Backup mit Prüfsumme und Versionsmigration härten
-- Capability-Layer und Validierung pro Geräteprofil ausbauen
+- Backup Schema v2 mit SHA-256, Validierung, Migration und atomarem Restore
 - Automationsvorlagen implementieren
 - YouDo-Modul-Hooks ergänzen
 - anschließend weitere SystemONE-Module in denselben Simulations-/Diagnoserahmen integrieren

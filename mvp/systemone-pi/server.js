@@ -7,6 +7,11 @@ const { LocalStorage } = require('./lib/storage');
 const { HueAdapter } = require('./lib/hue');
 const { Diagnostics } = require('./lib/diagnostics');
 const { ReconnectController } = require('./lib/reconnect');
+const { publicProfiles, validateCapabilities } = require('./lib/capabilities');
+const { migrateLegacyDevice, publicDevice } = require('./lib/device-model');
+const { DeviceRegistry } = require('./lib/device-registry');
+const { SimulationAdapter } = require('./lib/simulation');
+const { assertAdapter } = require('./lib/adapter');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -15,16 +20,10 @@ const storage = new LocalStorage(DATA_DIR);
 const diagnostics = new Diagnostics();
 const reconnect = new ReconnectController({ diagnostics });
 
-const DEVICE_PROFILES = {
-  light: { label: 'Licht', capabilities: ['on', 'brightness'] },
-  switch: { label: 'Steckdose / Schalter', capabilities: ['on'] },
-  sensor: { label: 'Sensor', capabilities: ['value', 'unit'] },
-  thermostat: { label: 'Heizung / Thermostat', capabilities: ['temperature', 'targetTemperature'] },
-  blind: { label: 'Rollladen / Jalousie', capabilities: ['position'] }
-};
+const DEVICE_PROFILES = publicProfiles();
 
 const initialState = {
-  system: { name: 'SystemONE Pi', version: '0.3.1', mode: 'local', online: true },
+  system: { name: 'SystemONE Pi', version: '0.4.0', mode: 'local', online: true },
   onboarding: { completed: false, adminPaired: false, selectedTheme: 'Clear', pairingSession: null },
   integrations: { hue: { discovered: false, paired: false, bridge: null, lastSync: null, syncError: null, mode: 'simulation', reconnect: reconnect.snapshot() } },
   rooms: [{ id: 'living', name: 'Wohnzimmer' }, { id: 'office', name: 'Büro' }, { id: 'bedroom', name: 'Schlafzimmer' }],
@@ -34,11 +33,11 @@ const initialState = {
 const persisted = storage.loadState(initialState);
 const state = {
   ...initialState, ...persisted,
-  system: { ...initialState.system, ...(persisted.system || {}), version: '0.3.1' },
+  system: { ...initialState.system, ...(persisted.system || {}), version: '0.4.0' },
   onboarding: { ...initialState.onboarding, ...(persisted.onboarding || {}), pairingSession: null },
   integrations: { ...initialState.integrations, ...(persisted.integrations || {}), hue: { ...initialState.integrations.hue, ...(persisted.integrations?.hue || {}), reconnect: reconnect.snapshot() } },
   rooms: Array.isArray(persisted.rooms) ? persisted.rooms : initialState.rooms,
-  devices: Array.isArray(persisted.devices) ? persisted.devices : []
+  devices: Array.isArray(persisted.devices) ? persisted.devices.map(migrateLegacyDevice) : []
 };
 
 const demoDevices = [
@@ -46,11 +45,20 @@ const demoDevices = [
   { id: 'hue-2', hueId: '2', integration: 'hue', type: 'light', sourceName: 'Schreibtisch', name: 'Schreibtisch', roomId: 'office', online: true, on: false, brightness: 35 }
 ];
 const hue = new HueAdapter({ storage, demoDevices, diagnostics });
+const simulation = new SimulationAdapter();
+const adapters = new Map([['hue', assertAdapter(hue)], ['simulation', assertAdapter(simulation)]]);
+const registry = new DeviceRegistry(state.devices);
 state.integrations.hue.mode = hue.mode;
+
+function syncRegistryState() { state.devices = registry.list(); }
+registry.on('device.added', syncRegistryState);
+registry.on('device.updated', syncRegistryState);
+registry.on('registry.changed', syncRegistryState);
 
 function updateReconnectState() { state.integrations.hue.reconnect = reconnect.snapshot(); }
 function persist() {
   updateReconnectState();
+  syncRegistryState();
   const safeState = JSON.parse(JSON.stringify(state));
   safeState.onboarding.pairingSession = null;
   storage.saveState(safeState);
@@ -59,6 +67,7 @@ function json(res, status, data) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify({ success: status < 400, data: status < 400 ? data : null, error: status >= 400 ? data : null }));
 }
+function publicState() { return { ...state, devices: registry.list({ publicOnly: true }) }; }
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -77,7 +86,7 @@ function serveStatic(req, res) {
   fs.createReadStream(filePath).pipe(res); return true;
 }
 function markHueOffline(error) {
-  state.devices = state.devices.map(device => device.integration === 'hue' ? { ...device, online: false, syncError: error.message } : device);
+  registry.list().filter(device => device.integration === 'hue').forEach(device => registry.patch(device.id, { online: false, availability: 'offline', diagnostics: { lastError: error.message } }));
   state.integrations.hue.lastSync = new Date().toISOString();
   state.integrations.hue.syncError = error.message;
   diagnostics.record(error.code || 'HUE_SYNC_FAILED', error.message, error.details || {});
@@ -103,10 +112,9 @@ async function syncHue() {
   if (!state.integrations.hue.paired) return state.devices;
   try {
     const lights = await hue.fetchLights();
-    const oldById = new Map(state.devices.map(device => [device.id, device]));
-    const nonHue = state.devices.filter(device => device.integration !== 'hue');
-    const synced = lights.map(light => { const previous = oldById.get(light.id); return { ...light, name: previous?.name || light.name, roomId: previous?.roomId || light.roomId || null, syncError: light.syncError || null }; });
-    state.devices = [...nonHue, ...synced];
+    const oldById = new Map(registry.list().map(device => [device.id, device]));
+    const synced = lights.map(light => { const previous = oldById.get(light.id); return { ...light, name: previous?.name || light.name, roomId: previous?.roomId || light.roomId || null }; });
+    registry.replaceIntegration('hue', synced);
     state.integrations.hue.lastSync = new Date().toISOString(); state.integrations.hue.syncError = null; reconnect.success();
   } catch (error) { markHueOffline(error); }
   persist(); return state.devices;
@@ -128,27 +136,11 @@ function completePairing(body) {
   state.onboarding.adminPaired = true; state.onboarding.pairingSession = null; persist(); return { adminPaired: true };
 }
 function createSimulatedDevice(body) {
-  const type = DEVICE_PROFILES[body.type] ? body.type : null;
-  if (!type) throw Object.assign(new Error('Unbekanntes Geräteprofil.'), { code: 'DEVICE_PROFILE_INVALID' });
+  const profile = DEVICE_PROFILES[body.profile || body.type] ? (body.profile || body.type) : null;
+  if (!profile) throw Object.assign(new Error('Unbekanntes Geräteprofil.'), { code: 'DEVICE_PROFILE_INVALID' });
   const roomId = state.rooms.some(room => room.id === body.roomId) ? body.roomId : null;
-  const id = `sim-${type}-${crypto.randomBytes(4).toString('hex')}`;
-  const base = { id, integration: 'simulation', type, name: String(body.name || DEVICE_PROFILES[type].label).slice(0, 60), roomId, online: true };
-  if (type === 'light') Object.assign(base, { on: false, brightness: 50 });
-  if (type === 'switch') Object.assign(base, { on: false });
-  if (type === 'sensor') Object.assign(base, { value: 21.4, unit: '°C' });
-  if (type === 'thermostat') Object.assign(base, { temperature: 20.8, targetTemperature: 21 });
-  if (type === 'blind') Object.assign(base, { position: 50 });
-  state.devices.push(base); persist(); return base;
-}
-function applyGenericPatch(device, body) {
-  if (typeof body.name === 'string' && body.name.trim()) device.name = body.name.trim().slice(0, 60);
-  if (typeof body.roomId === 'string' && state.rooms.some(r => r.id === body.roomId)) device.roomId = body.roomId;
-  if (device.integration === 'simulation') {
-    if (typeof body.on === 'boolean' && ['light', 'switch'].includes(device.type)) device.on = body.on;
-    if (Number.isFinite(body.brightness) && device.type === 'light') device.brightness = Math.max(1, Math.min(100, Math.round(body.brightness)));
-    if (Number.isFinite(body.targetTemperature) && device.type === 'thermostat') device.targetTemperature = Math.max(5, Math.min(35, Number(body.targetTemperature.toFixed(1))));
-    if (Number.isFinite(body.position) && device.type === 'blind') device.position = Math.max(0, Math.min(100, Math.round(body.position)));
-  }
+  const device = simulation.create({ profile, name: body.name, roomId });
+  registry.upsert(device); persist(); return publicDevice(device);
 }
 function exportBackup() { return { format: 'systemone-backup', version: 1, createdAt: new Date().toISOString(), state: { rooms: state.rooms, devices: state.devices.filter(d => d.integration !== 'hue'), onboarding: { selectedTheme: state.onboarding.selectedTheme } } }; }
 function setupStatus() {
@@ -172,7 +164,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/setup') return json(res, 200, setupStatus());
     if (req.method === 'GET' && url.pathname === '/api/profiles') return json(res, 200, DEVICE_PROFILES);
     if (req.method === 'GET' && url.pathname === '/api/system') return json(res, 200, state.system);
-    if (req.method === 'GET' && url.pathname === '/api/state') { if (url.searchParams.get('sync') === '1' && reconnect.state !== 'backoff') await syncHue(); updateReconnectState(); return json(res, 200, state); }
+    if (req.method === 'GET' && url.pathname === '/api/state') { if (url.searchParams.get('sync') === '1' && reconnect.state !== 'backoff') await syncHue(); updateReconnectState(); return json(res, 200, publicState()); }
     if (req.method === 'GET' && url.pathname === '/api/backup') return json(res, 200, exportBackup());
     if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/session') return json(res, 201, await createPairingSession());
     if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/complete') return json(res, 200, completePairing(await readBody(req)));
@@ -188,14 +180,21 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/devices/simulate') return json(res, 201, createSimulatedDevice(await readBody(req)));
     const deviceMatch = url.pathname.match(/^\/api\/devices\/([^/]+)$/);
     if (deviceMatch && req.method === 'PATCH') {
-      const device = state.devices.find(d => d.id === deviceMatch[1]);
+      const device = registry.get(deviceMatch[1]);
       if (!device) return json(res, 404, { code: 'DEVICE_NOT_FOUND', message: 'Gerät nicht gefunden.' });
       const body = await readBody(req);
-      if (device.integration === 'hue' && (typeof body.on === 'boolean' || Number.isFinite(body.brightness))) {
+      const capabilityPatch = body.capabilities ? validateCapabilities(device.profile, body.capabilities, { partial: true }) : {};
+      if (Object.keys(capabilityPatch).length) {
         if (!device.online) return json(res, 409, { code: 'HUE_DEVICE_OFFLINE', message: `${device.name} ist offline.` });
-        Object.assign(device, await hue.setLight(device, body));
+        const adapter = adapters.get(device.integration);
+        if (!adapter) return json(res, 409, { code: 'ADAPTER_NOT_FOUND', message: 'Geräteadapter ist nicht verfügbar.' });
+        registry.patch(device.id, { capabilities: await adapter.applyCapabilities(device, capabilityPatch), diagnostics: { lastSeen: new Date().toISOString(), lastError: null } });
       }
-      applyGenericPatch(device, body); persist(); return json(res, 200, device);
+      const metadata = {};
+      if (typeof body.name === 'string' && body.name.trim()) metadata.name = body.name.trim().slice(0, 60);
+      if (typeof body.roomId === 'string' && state.rooms.some(r => r.id === body.roomId)) metadata.roomId = body.roomId;
+      if (Object.keys(metadata).length) registry.patch(device.id, metadata);
+      persist(); return json(res, 200, publicDevice(registry.get(device.id)));
     }
     if (req.method === 'POST' && url.pathname === '/api/rooms') {
       const body = await readBody(req); const name = typeof body.name === 'string' ? body.name.trim().slice(0, 60) : '';
@@ -211,7 +210,7 @@ const server = http.createServer(async (req, res) => {
       state.devices = state.devices.filter(d => d.integration === 'hue').concat(body.state.devices.filter(d => d.integration === 'simulation').slice(0, 500));
       persist(); return json(res, 200, { restored: true, rooms: state.rooms.length, devices: state.devices.length });
     }
-    if (req.method === 'GET' && url.pathname === '/api/devices') return json(res, 200, state.devices);
+    if (req.method === 'GET' && url.pathname === '/api/devices') return json(res, 200, registry.list({ publicOnly: true }));
     if (req.method === 'GET' && url.pathname === '/api/rooms') return json(res, 200, state.rooms);
     if (req.method === 'GET' && !url.pathname.startsWith('/api/') && serveStatic(req, res)) return;
     if (req.method === 'GET' && !url.pathname.startsWith('/api/')) { req.url = '/index.html'; if (serveStatic(req, res)) return; }
@@ -224,7 +223,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', async () => {
-  console.log(`SystemONE Pi MVP v0.3.1 läuft auf http://localhost:${PORT} · Hue-Modus: ${hue.mode}`);
+  console.log(`SystemONE Pi MVP v0.4.0 läuft auf http://localhost:${PORT} · Hue-Modus: ${hue.mode}`);
   if (hue.mode !== 'real') diagnostics.record('HUE_REAL_MODE_DISABLED', 'Sicherer Simulationsmodus aktiv: keine private Hue Bridge wird angesprochen.');
   await discoverHue(); if (state.integrations.hue.paired) await syncHue();
 });
