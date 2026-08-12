@@ -9,29 +9,59 @@ function isPrivateIpv4(host) {
   return a === 10 || a === 127 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) || (a === 169 && b === 254);
 }
 
-function requestWithTimeout(url, options = {}, timeoutMs = 3000) {
+function typedError(code, message, details = {}) {
+  return Object.assign(new Error(message), { code, details });
+}
+
+async function requestWithTimeout(url, options = {}, timeoutMs = 3000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error?.name === 'AbortError') throw typedError('HUE_TIMEOUT', `Hue-Anfrage nach ${timeoutMs} ms abgebrochen.`, { url: redactUrl(url), timeoutMs });
+    throw typedError('HUE_NETWORK_ERROR', 'Hue-Bridge ist im lokalen Netzwerk nicht erreichbar.', { cause: error.message });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function redactUrl(url) {
+  return String(url).replace(/\/api\/[^/]+\//, '/api/[REDACTED]/');
 }
 
 class HueAdapter {
-  constructor({ storage, demoDevices = [] }) {
+  constructor({ storage, demoDevices = [], diagnostics }) {
     this.storage = storage;
     this.demoDevices = demoDevices;
+    this.diagnostics = diagnostics;
     this.secrets = storage.loadSecrets();
-    this.bridge = this.secrets.hueBridge || null;
-    this.username = this.secrets.hueUsername || null;
-    this.mock = process.env.HUE_MODE === 'mock';
+    this.mode = process.env.HUE_MODE === 'real' ? 'real' : 'simulation';
+    this.bridge = this.mode === 'real' ? (this.secrets.hueBridge || null) : null;
+    this.username = this.mode === 'real' ? (this.secrets.hueUsername || null) : 'simulation-user';
+    this.simFault = process.env.HUE_SIM_FAULT || '';
+  }
+
+  record(error, fallbackCode = 'INTERNAL_ERROR') {
+    this.diagnostics?.record(error.code || fallbackCode, error.message, error.details || {});
+  }
+
+  simulationBridge() {
+    return { id: 'hue-sim-001', name: 'Philips Hue Bridge (Simulation)', ip: '127.0.0.1', status: 'ready', simulated: true };
   }
 
   async discover() {
+    if (this.mode !== 'real') {
+      if (this.simFault === 'not-found') return null;
+      this.bridge = this.simulationBridge();
+      return this.bridge;
+    }
+
     const configuredIp = process.env.HUE_BRIDGE_IP || this.bridge?.ip;
     if (configuredIp) {
       const bridge = await this.verifyBridge(configuredIp);
       if (bridge) return this.rememberBridge(bridge);
     }
-    if (this.mock) return this.rememberBridge({ id: 'hue-demo-001', name: 'Philips Hue Bridge (Demo)', ip: '127.0.0.1', status: 'ready', mock: true });
 
     const locations = await this.ssdpSearch();
     for (const location of locations) {
@@ -40,12 +70,15 @@ class HueAdapter {
         if (!isPrivateIpv4(parsed.hostname)) continue;
         const bridge = await this.verifyBridge(parsed.hostname);
         if (bridge) return this.rememberBridge(bridge);
-      } catch {}
+      } catch (error) {
+        this.record(error, 'HUE_DISCOVERY_RESPONSE_INVALID');
+      }
     }
     return null;
   }
 
   rememberBridge(bridge) {
+    if (this.mode !== 'real') { this.bridge = bridge; return bridge; }
     const previousBridgeId = this.secrets.hueBridge?.id;
     if (previousBridgeId && previousBridgeId !== bridge.id) {
       this.username = null;
@@ -59,52 +92,38 @@ class HueAdapter {
   }
 
   isPairedWithCurrentBridge() {
-    if (this.bridge?.mock) return Boolean(this.username);
+    if (this.mode !== 'real') return Boolean(this.username && this.bridge);
     return Boolean(this.username && this.bridge?.id && this.secrets.huePairedBridgeId === this.bridge.id);
   }
 
   async verifyBridge(ip) {
-    if (!isPrivateIpv4(ip) && ip !== '127.0.0.1') return null;
-    try {
-      const response = await requestWithTimeout(`http://${ip}/description.xml`);
-      if (!response.ok) return null;
-      const xml = await response.text();
-      if (!/philips hue|signify/i.test(xml)) return null;
-      const name = xml.match(/<friendlyName>([^<]+)<\/friendlyName>/i)?.[1] || 'Philips Hue Bridge';
-      const id = xml.match(/<serialNumber>([^<]+)<\/serialNumber>/i)?.[1] || ip;
-      return { id, name, ip, status: 'ready', mock: false };
-    } catch {
-      return null;
-    }
+    if (this.mode !== 'real') return null;
+    if (!isPrivateIpv4(ip)) throw typedError('HUE_INVALID_BRIDGE_IP', 'Es werden nur private lokale IPv4-Adressen als Hue-Ziel akzeptiert.', { ip });
+    const response = await requestWithTimeout(`http://${ip}/description.xml`);
+    if (!response.ok) throw typedError('HUE_HTTP_ERROR', `Hue-Beschreibung antwortet mit HTTP ${response.status}.`, { status: response.status });
+    const xml = await response.text();
+    if (!/philips hue|signify/i.test(xml)) throw typedError('HUE_INVALID_BRIDGE_RESPONSE', 'Gefundenes Gerät ist keine erkannte Hue Bridge.');
+    const name = xml.match(/<friendlyName>([^<]+)<\/friendlyName>/i)?.[1] || 'Philips Hue Bridge';
+    const id = xml.match(/<serialNumber>([^<]+)<\/serialNumber>/i)?.[1] || ip;
+    return { id, name, ip, status: 'ready', simulated: false };
   }
 
   ssdpSearch(timeoutMs = 1800) {
+    if (this.mode !== 'real') return Promise.resolve([]);
     return new Promise(resolve => {
       const socket = dgram.createSocket('udp4');
       const found = new Set();
       let finished = false;
-      const message = Buffer.from([
-        'M-SEARCH * HTTP/1.1',
-        'HOST: 239.255.255.250:1900',
-        'MAN: "ssdp:discover"',
-        'MX: 1',
-        'ST: upnp:rootdevice',
-        '', ''
-      ].join('\r\n'));
-      const finish = () => {
-        if (finished) return;
-        finished = true;
-        try { socket.close(); } catch {}
-        resolve([...found]);
-      };
+      const message = Buffer.from(['M-SEARCH * HTTP/1.1','HOST: 239.255.255.250:1900','MAN: "ssdp:discover"','MX: 1','ST: upnp:rootdevice','',''].join('\r\n'));
+      const finish = () => { if (finished) return; finished = true; try { socket.close(); } catch {} resolve([...found]); };
       socket.on('message', msg => {
         const location = msg.toString().match(/^LOCATION:\s*(.+)$/im)?.[1]?.trim();
         if (location) found.add(location);
       });
-      socket.on('error', finish);
+      socket.on('error', error => { this.record(typedError('HUE_SSDP_ERROR', 'SSDP-Suche ist fehlgeschlagen.', { cause: error.message })); finish(); });
       socket.bind(() => {
-        socket.setBroadcast(true);
-        socket.send(message, 1900, '239.255.255.250');
+        try { socket.setBroadcast(true); socket.send(message, 1900, '239.255.255.250'); }
+        catch (error) { this.record(typedError('HUE_SSDP_ERROR', 'SSDP-Anfrage konnte nicht gesendet werden.', { cause: error.message })); finish(); }
       });
       setTimeout(finish, timeoutMs);
     });
@@ -112,25 +131,18 @@ class HueAdapter {
 
   async pair() {
     if (!this.bridge) await this.discover();
-    if (!this.bridge) throw Object.assign(new Error('Keine Hue Bridge gefunden.'), { code: 'HUE_NOT_FOUND' });
-    if (this.bridge.mock) {
-      this.username = 'demo-user';
-      this.secrets.hueUsername = this.username;
-      this.secrets.huePairedBridgeId = this.bridge.id;
-      this.storage.saveSecrets(this.secrets);
+    if (!this.bridge) throw typedError('HUE_NOT_FOUND', 'Keine Hue Bridge gefunden.');
+    if (this.mode !== 'real') {
+      if (this.simFault === 'link-button') throw typedError('HUE_LINK_BUTTON_REQUIRED', 'Simulation: Link-Taste wurde nicht bestätigt.');
       return { paired: true, bridge: this.bridge };
     }
     const response = await requestWithTimeout(`http://${this.bridge.ip}/api`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ devicetype: 'systemone_pi#admin' })
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ devicetype: 'systemone_pi#admin' })
     }, 5000);
+    if (!response.ok) throw typedError('HUE_HTTP_ERROR', `Hue-Pairing antwortet mit HTTP ${response.status}.`, { status: response.status });
     const result = await response.json();
     const username = result?.[0]?.success?.username;
-    if (!username) {
-      const description = result?.[0]?.error?.description || 'Link-Taste der Hue Bridge drücken und erneut versuchen.';
-      throw Object.assign(new Error(description), { code: 'HUE_LINK_BUTTON_REQUIRED' });
-    }
+    if (!username) throw typedError('HUE_LINK_BUTTON_REQUIRED', result?.[0]?.error?.description || 'Link-Taste der Hue Bridge drücken und erneut versuchen.');
     this.username = username;
     this.secrets.hueUsername = username;
     this.secrets.huePairedBridgeId = this.bridge.id;
@@ -140,30 +152,30 @@ class HueAdapter {
 
   async fetchLights() {
     if (!this.bridge || !this.username) return [];
-    if (this.bridge.mock) return this.demoDevices;
-    const response = await requestWithTimeout(`http://${this.bridge.ip}/api/${encodeURIComponent(this.username)}/lights`, {}, 3500);
-    if (!response.ok) throw new Error(`Hue HTTP ${response.status}`);
-    const lights = await response.json();
-    if (Array.isArray(lights) && lights[0]?.error) {
-      throw Object.assign(new Error(lights[0].error.description || 'Hue-Zugriff nicht autorisiert.'), { code: 'HUE_UNAUTHORIZED' });
+    if (this.mode !== 'real') {
+      if (this.simFault === 'timeout') throw typedError('HUE_TIMEOUT', 'Simulation: Bridge-Zeitüberschreitung.');
+      if (this.simFault === 'auth') throw typedError('HUE_AUTH_ERROR', 'Simulation: Hue-Credential ungültig.');
+      if (this.simFault === 'offline') return this.demoDevices.map(device => ({ ...device, online: false, syncError: 'Simulation: Gerät offline' }));
+      return this.demoDevices.map(device => ({ ...device }));
     }
+    const response = await requestWithTimeout(`http://${this.bridge.ip}/api/${encodeURIComponent(this.username)}/lights`, {}, 3500);
+    if (!response.ok) throw typedError('HUE_HTTP_ERROR', `Hue-Lichtliste antwortet mit HTTP ${response.status}.`, { status: response.status });
+    const lights = await response.json();
+    if (Array.isArray(lights) && lights[0]?.error) throw typedError('HUE_AUTH_ERROR', lights[0].error.description || 'Hue-Zugriff nicht autorisiert.');
     return Object.entries(lights).map(([id, light]) => ({
-      id: `hue-${id}`,
-      hueId: id,
-      integration: 'hue',
-      type: 'light',
-      sourceName: light.name || `Hue ${id}`,
-      name: light.name || `Hue ${id}`,
-      roomId: null,
-      online: light.state?.reachable !== false,
-      on: Boolean(light.state?.on),
-      brightness: Math.max(1, Math.min(100, Math.round(((light.state?.bri || 1) / 254) * 100)))
+      id: `hue-${id}`, hueId: id, integration: 'hue', type: 'light', sourceName: light.name || `Hue ${id}`,
+      name: light.name || `Hue ${id}`, roomId: null, online: light.state?.reachable !== false,
+      on: Boolean(light.state?.on), brightness: Math.max(1, Math.min(100, Math.round(((light.state?.bri || 1) / 254) * 100)))
     }));
   }
 
   async setLight(device, patch) {
-    if (!this.bridge || !this.username) throw Object.assign(new Error('Hue Bridge ist nicht gekoppelt.'), { code: 'HUE_NOT_PAIRED' });
-    if (this.bridge.mock) return { ...device, ...patch };
+    if (!this.bridge || !this.username) throw typedError('HUE_NOT_PAIRED', 'Hue Bridge ist nicht gekoppelt.');
+    if (this.mode !== 'real') {
+      if (this.simFault === 'command') throw typedError('HUE_COMMAND_FAILED', 'Simulation: Hue-Befehl wurde abgelehnt.');
+      if (!device.online) throw typedError('HUE_DEVICE_OFFLINE', `${device.name} ist offline.`);
+      return { ...device, ...patch };
+    }
     const body = {};
     if (typeof patch.on === 'boolean') body.on = patch.on;
     if (Number.isFinite(patch.brightness)) body.bri = Math.max(1, Math.min(254, Math.round((patch.brightness / 100) * 254)));
@@ -171,12 +183,12 @@ class HueAdapter {
     const response = await requestWithTimeout(`http://${this.bridge.ip}/api/${encodeURIComponent(this.username)}/lights/${encodeURIComponent(device.hueId)}/state`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     }, 3500);
-    if (!response.ok) throw new Error(`Hue HTTP ${response.status}`);
+    if (!response.ok) throw typedError('HUE_HTTP_ERROR', `Hue-Befehl antwortet mit HTTP ${response.status}.`, { status: response.status });
     const result = await response.json();
     const hueError = result.find(item => item.error)?.error;
-    if (hueError) throw Object.assign(new Error(hueError.description || 'Hue-Befehl fehlgeschlagen.'), { code: 'HUE_COMMAND_FAILED' });
+    if (hueError) throw typedError('HUE_COMMAND_FAILED', hueError.description || 'Hue-Befehl fehlgeschlagen.');
     return { ...device, ...patch };
   }
 }
 
-module.exports = { HueAdapter };
+module.exports = { HueAdapter, typedError, isPrivateIpv4 };
