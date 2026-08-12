@@ -14,6 +14,7 @@ const { SimulationAdapter } = require('./lib/simulation');
 const { assertAdapter } = require('./lib/adapter');
 const { createBackup, validateBackup } = require('./lib/backup');
 const { AutomationEngine, TEMPLATES, validateAutomation } = require('./lib/automations');
+const { AutomationScheduler } = require('./lib/scheduler');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -67,6 +68,7 @@ async function applyDeviceCapabilities(deviceId, capabilityPatch) {
 
 const validPersistedAutomations = state.automations.flatMap(value => { try { return [validateAutomation(value, registry)]; } catch (error) { diagnostics.record('AUTOMATION_INVALID', 'Gespeicherte Automation wurde übersprungen.', { cause: error.message }); return []; } });
 const automationEngine = new AutomationEngine({ registry, automations: validPersistedAutomations, executeAction: action => applyDeviceCapabilities(action.deviceId, action.capabilities) });
+const scheduler = new AutomationScheduler({ engine: automationEngine });
 state.automations = automationEngine.list();
 
 function syncRegistryState() { state.devices = registry.list(); }
@@ -204,6 +206,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/state') { if (url.searchParams.get('sync') === '1' && reconnect.state !== 'backoff') await syncHue(); updateReconnectState(); return json(res, 200, publicState()); }
     if (req.method === 'GET' && url.pathname === '/api/backup') return json(res, 200, exportBackup());
     if (req.method === 'GET' && url.pathname === '/api/automations/templates') return json(res, 200, TEMPLATES);
+    if (req.method === 'GET' && url.pathname === '/api/automations/scheduler') return json(res, 200, scheduler.status());
     if (req.method === 'GET' && url.pathname === '/api/automations') return json(res, 200, automationEngine.list());
     if (req.method === 'POST' && url.pathname === '/api/automations') { const item = automationEngine.add(await readBody(req)); persist(); return json(res, 201, item); }
     if (req.method === 'POST' && url.pathname === '/api/automations/from-template') { const body = await readBody(req); const item = automationEngine.addFromTemplate(body.templateId, body); persist(); return json(res, 201, item); }
@@ -263,6 +266,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, '0.0.0.0', async () => {
   console.log(`SystemONE Pi MVP v0.4.0 läuft auf http://localhost:${PORT} · Hue-Modus: ${hue.mode}`);
   if (hue.mode !== 'real') diagnostics.record('HUE_REAL_MODE_DISABLED', 'Sicherer Simulationsmodus aktiv: keine private Hue Bridge wird angesprochen.');
+  scheduler.start();
   await discoverHue(); if (state.integrations.hue.paired) await syncHue();
 });
 setInterval(async () => {

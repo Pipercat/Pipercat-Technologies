@@ -42,6 +42,15 @@ Local-first Core mit normalisiertem Device Model. Standardmäßig läuft alles i
 - strukturierte Diagnosen `STORAGE_RECOVERED`, `STORAGE_READ_FAILED` und `STORAGE_WRITE_FAILED`
 - fehlgeschlagene Schreibvorgänge räumen ihre temporären Dateien auf
 
+## Automation Scheduler v1
+
+- tägliche lokale Uhrzeit-Trigger im Format `HH:MM`
+- idempotente Ausführung: eine Regel läuft höchstens einmal pro Minute
+- Scheduler arbeitet ohne Internet und ohne Cloud-Zeitdienst
+- Sonnenauf-/Sonnenuntergang als injizierbare lokale Provider-Abstraktion vorbereitet
+- Sonnenereignisse bleiben ohne konfigurierten Standortprovider sicher inaktiv
+- Offset von bis zu zwölf Stunden vor oder nach einem Sonnenereignis
+
 ## Sicherheitsregel
 
 ```bash
@@ -124,6 +133,7 @@ HUE_SIM_FAULT=command npm start
 - `POST /api/automations/from-template`
 - `PATCH /api/automations/:id`
 - `DELETE /api/automations/:id`
+- `GET /api/automations/scheduler`
 
 ## Aktuelle Core-Selftests
 
@@ -157,6 +167,12 @@ HUE_SIM_FAULT=command npm start
 28. letzte gültige Storage-Sicherung
 29. Recovery beschädigter Zustandsdatei
 30. Diagnose nicht behebbarer Lesefehler
+31. Zeitvorlage
+32. Abweisung ungültiger Uhrzeit
+33. einmalige Ausführung pro Minute
+34. Ignorieren nicht fälliger Zeit
+35. Sonnenereignis mit lokalem Provider
+36. sicher inaktives Sonnenereignis ohne Provider
 
 ## Noch nicht produktionsreif
 
