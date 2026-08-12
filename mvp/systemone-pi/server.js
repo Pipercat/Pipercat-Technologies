@@ -253,6 +253,8 @@ const server = http.createServer(async (req, res) => {
       if (Object.keys(metadata).length) registry.patch(device.id, metadata);
       persist(); return json(res, 200, publicDevice(registry.get(device.id)));
     }
+    const actionMatch = url.pathname.match(/^\/api\/devices\/([^/]+)\/actions\/([^/]+)$/);
+    if (actionMatch && req.method === 'POST') { const device = registry.get(actionMatch[1]); if (!device) return json(res, 404, { code: 'DEVICE_NOT_FOUND', message: 'Gerät nicht gefunden.' }); const adapter = adapters.get(device.integration); if (!adapter?.applyAction) return json(res, 409, { code: 'DEVICE_ACTION_UNSUPPORTED', message: 'Aktion wird von diesem Gerät nicht unterstützt.' }); const capabilities = await adapter.applyAction(device, actionMatch[2]); if (Object.keys(capabilities).length) registry.patch(device.id, { capabilities }); persist(); return json(res, 200, publicDevice(registry.get(device.id))); }
     if (req.method === 'POST' && url.pathname === '/api/rooms') {
       const body = await readBody(req); const name = typeof body.name === 'string' ? body.name.trim().slice(0, 60) : '';
       if (!name) return json(res, 400, { code: 'ROOM_NAME_REQUIRED', message: 'Raumname fehlt.' });

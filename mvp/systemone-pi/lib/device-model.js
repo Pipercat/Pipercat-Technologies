@@ -30,6 +30,11 @@ function createDevice(input) {
       lastSeen: input.diagnostics?.lastSeen || (online ? new Date().toISOString() : null),
       lastError: input.diagnostics?.lastError || null
     },
+    information: {
+      firmwareVersion: input.information?.firmwareVersion || null,
+      serialNumber: input.information?.serialNumber || null,
+      hardwareVersion: input.information?.hardwareVersion || null
+    },
     adapterData: input.adapterData && typeof input.adapterData === 'object' ? { ...input.adapterData } : {}
   };
 }

@@ -78,6 +78,16 @@ Local-first Core mit normalisiertem Device Model. Standardmäßig läuft alles i
 - Geräteprofil und Raum werden serverseitig validiert
 - Abschluss erstellt automatisch die normalisierte Gerätekarte
 
+## Erweiterte Geräteprofile
+
+- Licht: Leistung, Helligkeit, Farbtemperatur und vorbereitete Hex-Farbe
+- Schalter: Leistung und Energie
+- Sensor: normalisierter Sensortyp und Batteriestand
+- Thermostat: Modus, Heizzustand, Luftfeuchtigkeit und Batterie
+- Rollladen: Position, Neigung, Batterie sowie Öffnen/Stop/Schließen
+- lokale Geräteinformationen für Firmware, Seriennummer und Hardwareversion
+- gerätespezifische Karten, Batterieanzeige und Warnung bei höchstens 20 Prozent
+
 ## Sicherheitsregel
 
 ```bash
@@ -215,6 +225,12 @@ HUE_SIM_FAULT=command npm start
 42. Sperre unfertiger Themes
 43. hardware-sichere Integrationsauswahl
 44. Validierung des Geräteassistenten
+45. Farbe und Farbtemperatur
+46. Sensortyp und Batterie
+47. Thermostat-Heizzustand
+48. Schalter-Leistungswert
+49. Rollladen-Aktionen
+50. lokale Geräteinformationen
 
 ## Noch nicht produktionsreif
 
