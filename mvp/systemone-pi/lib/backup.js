@@ -47,4 +47,9 @@ function validateBackup(input) {
   return { ...backup, data, migrated: input?.version === 1 };
 }
 
-module.exports = { FORMAT, SCHEMA_VERSION, checksum, createBackup, migrateV1, validateBackup };
+function summarizeBackup(input) {
+  const backup = validateBackup(input);
+  return { valid: true, format: backup.format, schemaVersion: backup.schemaVersion, systemVersion: backup.systemVersion, createdAt: backup.createdAt, checksum: backup.checksum, migrated: backup.migrated, rooms: backup.data.rooms.length, devices: backup.data.devices.length, theme: backup.data.onboarding.selectedTheme };
+}
+
+module.exports = { FORMAT, SCHEMA_VERSION, checksum, createBackup, migrateV1, validateBackup, summarizeBackup };

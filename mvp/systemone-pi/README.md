@@ -22,6 +22,10 @@ Local-first Core mit normalisiertem Device Model. Standardmäßig läuft alles i
 - automatische Migration des bisherigen v1-Formats
 - transaktionaler Restore mit Rollback des In-Memory- und Dateizustands
 - explizite Allowlist: nur Räume, Simulationsgeräte und Theme; keine Hue-Geräte, Credentials oder Tokens
+- Clear-UI für lokalen Download, Dateiauswahl und Restore
+- serverseitige Vorabvalidierung mit Schema-, Inhalts- und Prüfsummenübersicht
+- zweistufige Restore-Bestätigung nach erfolgreicher Validierung
+- maximale Uploadgröße von 1 MB in der Oberfläche
 
 ## Automation Engine v1
 
@@ -129,6 +133,7 @@ HUE_SIM_FAULT=command npm start
 - `POST /api/onboarding/pair-admin/complete`
 - `GET /api/backup`
 - `POST /api/backup/restore`
+- `POST /api/backup/validate`
 - `GET /api/automations`
 - `GET /api/automations/templates`
 - `POST /api/automations`
@@ -179,6 +184,8 @@ HUE_SIM_FAULT=command npm start
 36. sicher inaktives Sonnenereignis ohne Provider
 37. Standortvalidierung
 38. lokale Sonnenzeitberechnung
+39. validierte Backup-Zusammenfassung
+40. Abweisung manipulierter Backup-Zusammenfassung
 
 ## Noch nicht produktionsreif
 

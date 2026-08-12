@@ -1,6 +1,6 @@
 const assert=require('assert');const fs=require('fs');const os=require('os');const path=require('path');const {LocalStorage}=require('../lib/storage');const {HueAdapter}=require('../lib/hue');const {Diagnostics}=require('../lib/diagnostics');const {ReconnectController}=require('../lib/reconnect');
 const {validateCapabilities}=require('../lib/capabilities');const {migrateLegacyDevice,publicDevice}=require('../lib/device-model');const {DeviceRegistry}=require('../lib/device-registry');const {SimulationAdapter}=require('../lib/simulation');
-const {createBackup,validateBackup}=require('../lib/backup');
+const {createBackup,validateBackup,summarizeBackup}=require('../lib/backup');
 const {AutomationEngine,compare,fromTemplate}=require('../lib/automations');
 const {AutomationScheduler}=require('../lib/scheduler');
 const {validateLocation,calculateSolarEvents}=require('../lib/solar');
@@ -45,4 +45,6 @@ await test('Sonnen-Trigger nutzt injizierten lokalen Provider',async()=>{const s
 await test('Sonnen-Trigger bleibt ohne Standortprovider sicher inaktiv',async()=>{const sim=new SimulationAdapter(),light=sim.create({profile:'light',name:'Licht'}),registry=new DeviceRegistry([light]);let runs=0;const engine=new AutomationEngine({registry,executeAction:async()=>{runs++}});engine.addFromTemplate('sun-device',{actionDeviceId:light.id,event:'sunset',offsetMinutes:0});await new AutomationScheduler({engine}).tick(new Date());assert.equal(runs,0)});
 await test('Standortvalidierung begrenzt Koordinaten',async()=>{assert.deepEqual(validateLocation({latitude:52.52,longitude:13.405}),{latitude:52.52,longitude:13.405});assert.throws(()=>validateLocation({latitude:91,longitude:0}),e=>e.code==='LOCATION_INVALID')});
 await test('Sonnenzeiten werden vollständig lokal berechnet',async()=>{const events=calculateSolarEvents(new Date('2026-08-12T12:00:00Z'),{latitude:52.52,longitude:13.405});assert.ok(events.sunrise instanceof Date);assert.ok(events.sunset instanceof Date);assert.ok(events.sunrise<events.sunset);assert.ok(events.sunrise.getUTCHours()>=2&&events.sunrise.getUTCHours()<=6);assert.ok(events.sunset.getUTCHours()>=17&&events.sunset.getUTCHours()<=20)});
-console.log(`\n${passed}/38 Tests bestanden`);if(passed!==38)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
+await test('Backup-Zusammenfassung folgt erfolgreicher Vollvalidierung',async()=>{const backup=createBackup({rooms:[{id:'living',name:'Wohnzimmer'}],devices:[],onboarding:{selectedTheme:'Clear'}}),summary=summarizeBackup(backup);assert.equal(summary.valid,true);assert.equal(summary.rooms,1);assert.equal(summary.checksum,backup.checksum)});
+await test('Backup-Zusammenfassung lehnt Manipulation ab',async()=>{const backup=createBackup({rooms:[],devices:[],onboarding:{}});backup.data.rooms.push({id:'x',name:'X'});assert.throws(()=>summarizeBackup(backup),e=>e.code==='BACKUP_INVALID')});
+console.log(`\n${passed}/40 Tests bestanden`);if(passed!==40)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});

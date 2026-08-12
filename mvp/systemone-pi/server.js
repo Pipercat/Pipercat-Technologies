@@ -12,7 +12,7 @@ const { migrateLegacyDevice, publicDevice } = require('./lib/device-model');
 const { DeviceRegistry } = require('./lib/device-registry');
 const { SimulationAdapter } = require('./lib/simulation');
 const { assertAdapter } = require('./lib/adapter');
-const { createBackup, validateBackup } = require('./lib/backup');
+const { createBackup, validateBackup, summarizeBackup } = require('./lib/backup');
 const { AutomationEngine, TEMPLATES, validateAutomation } = require('./lib/automations');
 const { AutomationScheduler } = require('./lib/scheduler');
 const { validateLocation, calculateSolarEvents } = require('./lib/solar');
@@ -210,6 +210,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'PATCH' && url.pathname === '/api/home') { const body = await readBody(req); if (typeof body.name === 'string' && body.name.trim()) state.home.name = body.name.trim().slice(0, 80); if (body.location !== undefined) state.home.location = body.location === null ? null : validateLocation(body.location); persist(); return json(res, 200, state.home); }
     if (req.method === 'GET' && url.pathname === '/api/state') { if (url.searchParams.get('sync') === '1' && reconnect.state !== 'backoff') await syncHue(); updateReconnectState(); return json(res, 200, publicState()); }
     if (req.method === 'GET' && url.pathname === '/api/backup') return json(res, 200, exportBackup());
+    if (req.method === 'POST' && url.pathname === '/api/backup/validate') return json(res, 200, summarizeBackup(await readBody(req)));
     if (req.method === 'GET' && url.pathname === '/api/automations/templates') return json(res, 200, TEMPLATES);
     if (req.method === 'GET' && url.pathname === '/api/automations/scheduler') return json(res, 200, scheduler.status());
     if (req.method === 'GET' && url.pathname === '/api/automations') return json(res, 200, automationEngine.list());
