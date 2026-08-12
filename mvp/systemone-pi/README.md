@@ -33,6 +33,15 @@ Local-first Core mit normalisiertem Device Model. Standardmäßig läuft alles i
 - letzter Lauf und strukturierter Aktionsfehler bleiben sichtbar und persistent
 - Schutz vor rekursiver Ausführung derselben Automation
 
+## Robuste lokale Persistenz
+
+- atomare Schreibvorgänge mit eindeutiger temporärer Datei und Rename
+- `fsync` für Datei und – soweit vom Dateisystem unterstützt – Datenverzeichnis
+- letzte gültige Version als `.bak`-Recovery-Datei
+- automatische Wiederherstellung bei beschädigtem JSON
+- strukturierte Diagnosen `STORAGE_RECOVERED`, `STORAGE_READ_FAILED` und `STORAGE_WRITE_FAILED`
+- fehlgeschlagene Schreibvorgänge räumen ihre temporären Dateien auf
+
 ## Sicherheitsregel
 
 ```bash
@@ -145,6 +154,9 @@ HUE_SIM_FAULT=command npm start
 25. lokale Geräteaktion
 26. deaktivierte Automation
 27. diagnostizierbarer Aktionsfehler
+28. letzte gültige Storage-Sicherung
+29. Recovery beschädigter Zustandsdatei
+30. Diagnose nicht behebbarer Lesefehler
 
 ## Noch nicht produktionsreif
 

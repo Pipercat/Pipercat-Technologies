@@ -18,8 +18,8 @@ const { AutomationEngine, TEMPLATES, validateAutomation } = require('./lib/autom
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
 const DATA_DIR = process.env.SYSTEMONE_DATA_DIR || path.join(__dirname, 'data');
-const storage = new LocalStorage(DATA_DIR);
 const diagnostics = new Diagnostics();
+const storage = new LocalStorage(DATA_DIR, { onError: error => diagnostics.record(error.code, error.message, error.details) });
 const reconnect = new ReconnectController({ diagnostics });
 
 const DEVICE_PROFILES = publicProfiles();
