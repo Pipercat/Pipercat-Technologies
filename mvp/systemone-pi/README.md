@@ -57,6 +57,15 @@ Local-first Core mit normalisiertem Device Model. Standardmäßig läuft alles i
 - lokales Hausmodell mit Name, Breiten- und Längengrad
 - Sonnenzeiten werden direkt auf SystemONE Pi berechnet; keine Standortdaten verlassen das Gerät
 
+## Notion-abgeglichenes Clear UI
+
+- getrennte Kundenansichten für Übersicht, Räume & Geräte, Automationen, Backup und Diagnose
+- Übersichtskarten für bereite Geräte, Störungen, aktive Automationen und lokale Sicherung
+- produktnahe Statussprache statt technischer Integrationsbegriffe
+- Offline-Karten mit Ursache, Handlungsempfehlung und Wiederholen-Aktion
+- responsive Kartenraster und touchfreundliche Bedienelemente
+- gemeinsame Design-Tokens als Grundlage für Clear, Midnight, Compact und Living
+
 ## Sicherheitsregel
 
 ```bash
