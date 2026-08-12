@@ -1,47 +1,51 @@
-# SystemONE Pi MVP v0.3
+# SystemONE Pi MVP v0.3.1
 
-v0.3 ist eine hardware-sichere Entwicklungs- und Diagnoseversion. Sie ist dafür gedacht, SystemONE theoretisch und reproduzierbar zu testen, **ohne das produktive Philips-Hue-System anzufassen**.
+Hardware-sichere Entwicklungs- und Diagnoseversion von SystemONE. Standardmäßig läuft alles in Simulation; das produktive Philips-Hue-System wird nicht angesprochen.
 
 ## Sicherheitsregel
 
-`npm start` läuft standardmäßig im **Simulationsmodus**. In diesem Modus werden weder SSDP-Anfragen an das Heimnetz gesendet noch Hue-HTTP-Endpunkte aufgerufen.
+```bash
+npm start
+```
 
-Echte Hue-Kommunikation ist nur nach bewusster Freigabe möglich:
+startet im Simulationsmodus. Echte Hue-Kommunikation wird ausschließlich bewusst freigeschaltet:
 
 ```bash
 HUE_MODE=real npm start
 ```
 
-Damit kann die private Installation bis zu einem späteren Hardware-Pilot unverändert bleiben.
+## Neu in v0.3.1
 
-## v0.3 enthält
+- Reconnect-Zustandsmaschine mit `idle`, `connected`, `backoff` und `reconnecting`
+- exponentieller Retry-Backoff mit Jitter statt aggressiver Endlosschleifen
+- manueller Reconnect-Endpunkt und sichtbarer Reconnect-Status
+- deutlich erweiterte Diagnosematrix für Netzwerk, SSDP, Bridge, Auth, Geräte, Pairing, Backup und Speicher
+- echter lokal erzeugter QR-Code für Admin-Pairing
+- 5 Minuten gültiger Token plus 6-stelliger Bestätigungscode
+- lokaler QR-Scan-Simulator, damit der Pairing-Flow ohne mobile App vollständig testbar ist
+- geführter Setup-Assistent mit sechs Prüfschritten
+- 10 hardwarefreie Selftests
 
-- Diagnose-Engine mit strukturierten Fehlercodes, Schweregrad und Handlungsempfehlung
-- `/api/health` und `/api/diagnostics`
-- Fehlerprotokoll ohne Ausgabe von Tokens/Credentials
-- Hue-Simulation mit Bridge-Fund, Pairing, Lampen, Schalten und Dimmen
-- künstliche Fehlerfälle: Bridge nicht gefunden, Link-Button fehlt, Timeout, Auth-Fehler, Gerät offline und Befehlsfehler
-- fünf Geräteprofile: Licht, Steckdose/Schalter, Sensor, Thermostat und Rollladen/Jalousie
-- simuliertes „Gerät hinzufügen“ über die Oberfläche
-- persistente Räume und simulierte Geräte
-- zeitlich begrenzte Admin-Pairing-Sitzung mit Token, 6-stelligem Code und vorbereitetem `systemone://pair`-Payload für späteres QR-Pairing
-- lokale Backup-/Restore-API für Räume und Simulationsgeräte; Secrets werden nicht exportiert
-- echte Hue-Integration bleibt hinter `HUE_MODE=real` vorhanden
+## Bereits enthalten
 
-## Start und Prüfung
+- Hue-Simulation für Discovery, Pairing, Schalten und Dimmen
+- simulierbare Fehler: `not-found`, `link-button`, `timeout`, `auth`, `offline`, `command`
+- Geräteprofile Licht, Schalter/Steckdose, Sensor, Thermostat und Rollladen/Jalousie
+- persistente Räume und Simulationsgeräte
+- lokale Backup-/Restore-Grundlage ohne Secrets
+- echte Hue-Integration weiterhin hinter `HUE_MODE=real`
+
+## Start
 
 ```bash
 cd mvp/systemone-pi
+npm install
 npm run check
 npm test
 npm start
 ```
 
-Browser:
-
-```text
-http://localhost:4170
-```
+Browser: `http://localhost:4170`
 
 ## Fehler simulieren
 
@@ -54,26 +58,11 @@ HUE_SIM_FAULT=offline npm start
 HUE_SIM_FAULT=command npm start
 ```
 
-Diese Varianten bleiben im Simulationsmodus und sprechen keine echte Hue Bridge an.
-
-## Automatischer Selftest
-
-`npm test` prüft derzeit acht hardwarefreie Szenarien:
-
-1. Simulationsmodus verwendet nur `127.0.0.1`
-2. Bridge nicht gefunden
-3. Link-Button-Fehler
-4. Timeout
-5. ungültige Hue-Authentifizierung
-6. Offline-Lampe
-7. fehlgeschlagener Steuerbefehl
-8. lokale Persistenz
-
-## API v0.3
+## API v0.3.1
 
 - `GET /api/health`
 - `GET /api/diagnostics`
-- `GET /api/system`
+- `GET /api/setup`
 - `GET /api/state`
 - `GET /api/profiles`
 - `GET /api/rooms`
@@ -84,22 +73,35 @@ Diese Varianten bleiben im Simulationsmodus und sprechen keine echte Hue Bridge 
 - `GET /api/integrations/hue/discover`
 - `POST /api/integrations/hue/pair`
 - `POST /api/integrations/hue/sync`
+- `POST /api/integrations/hue/reconnect`
 - `POST /api/onboarding/pair-admin/session`
 - `POST /api/onboarding/pair-admin/complete`
 - `GET /api/backup`
 - `POST /api/backup/restore`
 
+## Aktuelle Selftests
+
+1. kein Zugriff auf eine echte Bridge im Simulationsmodus
+2. Bridge nicht gefunden
+3. Link-Button fehlt
+4. Timeout
+5. Auth-Fehler
+6. Offline-Gerät
+7. Befehlsfehler
+8. Persistenz
+9. Reconnect wechselt in Backoff
+10. erfolgreicher Reconnect setzt Backoff zurück
+
 ## Noch nicht produktionsreif
 
-Kein Kundeneinsatz: TLS/Reverse-Proxy-Härtung, echtes Berechtigungsmodell, Geräteidentitäten/Zertifikate, signierte Updates, vollständige Backup-Validierung, Rate-Limits, CSRF-/Session-Schutz und Security-Review fehlen noch. Ein echter Hue-Hardwaretest wird bewusst erst später gemacht.
+Vor Kundeneinsatz fehlen weiterhin TLS/Reverse-Proxy-Härtung, echtes Berechtigungsmodell, Geräteidentitäten/Zertifikate, signierte Updates, Rate-Limits, CSRF-/Session-Schutz, vollständige Backup-Migrationen und ein Security-Review. Der echte Hue-Hardwaretest bleibt bewusst für einen späteren Pilot zurückgestellt.
 
-## Nächste Entwicklungsstufe
+## Danach
 
-- Diagnosematrix weiter ausbauen und Reconnect-Zustandsmaschine ergänzen
-- QR-Darstellung für das vorbereitete Admin-Pairing
-- Geräteprofil-Validierung und Capability-Layer ausbauen
-- geführten Einrichtungsassistenten vervollständigen
-- Backup/Restore mit Prüfsumme und Versionsmigration härten
-- danach Automationsvorlagen und YouDo-Modul-Hooks
+- Backup mit Prüfsumme und Versionsmigration härten
+- Capability-Layer und Validierung pro Geräteprofil ausbauen
+- Automationsvorlagen implementieren
+- YouDo-Modul-Hooks ergänzen
+- anschließend weitere SystemONE-Module in denselben Simulations-/Diagnoserahmen integrieren
 
 PEET, Pipercat-Control-Plane, Fernzugriff, Pipercat-Push und Kameraaufzeichnung/-KI bleiben außerhalb dieses Pi-MVPs.
