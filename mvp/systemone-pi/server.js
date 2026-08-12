@@ -12,6 +12,7 @@ const { migrateLegacyDevice, publicDevice } = require('./lib/device-model');
 const { DeviceRegistry } = require('./lib/device-registry');
 const { SimulationAdapter } = require('./lib/simulation');
 const { assertAdapter } = require('./lib/adapter');
+const { createBackup, validateBackup } = require('./lib/backup');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -142,7 +143,23 @@ function createSimulatedDevice(body) {
   const device = simulation.create({ profile, name: body.name, roomId });
   registry.upsert(device); persist(); return publicDevice(device);
 }
-function exportBackup() { return { format: 'systemone-backup', version: 1, createdAt: new Date().toISOString(), state: { rooms: state.rooms, devices: state.devices.filter(d => d.integration !== 'hue'), onboarding: { selectedTheme: state.onboarding.selectedTheme } } }; }
+function exportBackup() { syncRegistryState(); return createBackup(state, state.system.version); }
+function restoreBackup(input) {
+  const backup = validateBackup(input);
+  const snapshot = { rooms: structuredClone(state.rooms), devices: structuredClone(registry.list()), onboarding: structuredClone(state.onboarding) };
+  try {
+    state.rooms = backup.data.rooms;
+    state.onboarding.selectedTheme = backup.data.onboarding.selectedTheme;
+    registry.replaceIntegration('simulation', backup.data.devices);
+    persist();
+    return { restored: true, migrated: backup.migrated, schemaVersion: backup.schemaVersion, rooms: state.rooms.length, devices: backup.data.devices.length };
+  } catch (error) {
+    state.rooms = snapshot.rooms; state.onboarding = snapshot.onboarding;
+    registry.devices.clear(); snapshot.devices.forEach(device => registry.upsert(device, { silent: true })); syncRegistryState();
+    try { persist(); } catch {}
+    throw Object.assign(new Error('Restore fehlgeschlagen; vorheriger Zustand wurde wiederhergestellt.'), { code: 'BACKUP_RESTORE_FAILED', details: { cause: error.message } });
+  }
+}
 function setupStatus() {
   const health = diagnostics.health(state, hue);
   const steps = [
@@ -204,11 +221,7 @@ const server = http.createServer(async (req, res) => {
       const room = { id, name }; state.rooms.push(room); persist(); return json(res, 201, room);
     }
     if (req.method === 'POST' && url.pathname === '/api/backup/restore') {
-      const body = await readBody(req);
-      if (body?.format !== 'systemone-backup' || body?.version !== 1 || !body?.state || !Array.isArray(body.state.rooms) || !Array.isArray(body.state.devices)) return json(res, 400, { code: 'BACKUP_INVALID', message: 'Backup-Format ist ungültig.' });
-      state.rooms = body.state.rooms.slice(0, 100).map(r => ({ id: String(r.id).slice(0, 80), name: String(r.name).slice(0, 60) }));
-      state.devices = state.devices.filter(d => d.integration === 'hue').concat(body.state.devices.filter(d => d.integration === 'simulation').slice(0, 500));
-      persist(); return json(res, 200, { restored: true, rooms: state.rooms.length, devices: state.devices.length });
+      return json(res, 200, restoreBackup(await readBody(req)));
     }
     if (req.method === 'GET' && url.pathname === '/api/devices') return json(res, 200, registry.list({ publicOnly: true }));
     if (req.method === 'GET' && url.pathname === '/api/rooms') return json(res, 200, state.rooms);

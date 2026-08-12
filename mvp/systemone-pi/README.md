@@ -14,6 +14,15 @@ Local-first Core mit normalisiertem Device Model. Standardmäßig läuft alles i
 - interne Adapterdaten werden nicht über Geräte-Endpunkte ausgegeben
 - 17 hardwarefreie Selftests
 
+## Backup Schema v2
+
+- SHA-256 über kanonisch serialisierte Backup-Daten
+- Schema- und Systemversion sowie Erstellzeitpunkt
+- strikte Größen-, Raum-, Geräte- und Capability-Validierung vor Restore
+- automatische Migration des bisherigen v1-Formats
+- transaktionaler Restore mit Rollback des In-Memory- und Dateizustands
+- explizite Allowlist: nur Räume, Simulationsgeräte und Theme; keine Hue-Geräte, Credentials oder Tokens
+
 ## Sicherheitsregel
 
 ```bash
@@ -110,6 +119,10 @@ HUE_SIM_FAULT=command npm start
 15. Registry-Ereignisse
 16. normalisierte Simulation
 17. normalisierte Hue-Simulation
+18. gültige Backup-v2-Prüfsumme
+19. Erkennung manipulierter Backups
+20. Migration von Backup v1
+21. Ausschluss von Hue-Geräten und Secrets
 
 ## Noch nicht produktionsreif
 
