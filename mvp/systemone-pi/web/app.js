@@ -156,6 +156,22 @@ document.querySelector('#pairHue').addEventListener('click', async () => {
   }
 });
 
+document.querySelector('#addRoom').addEventListener('click', async () => {
+  const input = document.querySelector('#newRoomName');
+  const name = input.value.trim();
+  if (!name) return toast('Bitte zuerst einen Raumnamen eingeben');
+  try {
+    await api('/api/rooms', { method: 'POST', body: JSON.stringify({ name }) });
+    input.value = '';
+    await refresh(false);
+    toast(`Raum „${name}“ angelegt`);
+  } catch (error) { toast(error.message); }
+});
+
+document.querySelector('#newRoomName').addEventListener('keydown', event => {
+  if (event.key === 'Enter') document.querySelector('#addRoom').click();
+});
+
 document.querySelector('#refresh').addEventListener('click', async () => {
   try { await refresh(true); toast('Hue-Zustände synchronisiert'); } catch (error) { toast(error.message); }
 });
