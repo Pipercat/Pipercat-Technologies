@@ -1,0 +1,13 @@
+{
+  "name": "systemone-pi-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first SystemONE Pi MVP vertical slice",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
