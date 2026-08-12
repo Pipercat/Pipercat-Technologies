@@ -83,7 +83,7 @@ async function discoverHue() {
   const bridge = await hue.discover();
   state.integrations.hue.discovered = Boolean(bridge);
   state.integrations.hue.bridge = bridge;
-  state.integrations.hue.paired = Boolean(hue.username && bridge);
+  state.integrations.hue.paired = Boolean(bridge && hue.isPairedWithCurrentBridge());
   state.integrations.hue.syncError = bridge ? null : 'Keine lokale Hue Bridge gefunden.';
   persist();
   return state.integrations.hue;
@@ -91,19 +91,27 @@ async function discoverHue() {
 
 async function syncHue() {
   if (!state.integrations.hue.paired) return state.devices;
-  const lights = await hue.fetchLights();
-  const oldById = new Map(state.devices.map(device => [device.id, device]));
-  state.devices = lights.map(light => {
-    const previous = oldById.get(light.id);
-    return {
-      ...light,
-      name: previous?.name || light.name,
-      roomId: previous?.roomId || light.roomId || null
-    };
-  });
-  const anySyncError = state.devices.find(device => device.syncError)?.syncError || null;
-  state.integrations.hue.lastSync = new Date().toISOString();
-  state.integrations.hue.syncError = anySyncError;
+  try {
+    const lights = await hue.fetchLights();
+    const oldById = new Map(state.devices.map(device => [device.id, device]));
+    state.devices = lights.map(light => {
+      const previous = oldById.get(light.id);
+      return {
+        ...light,
+        name: previous?.name || light.name,
+        roomId: previous?.roomId || light.roomId || null,
+        syncError: null
+      };
+    });
+    state.integrations.hue.lastSync = new Date().toISOString();
+    state.integrations.hue.syncError = null;
+  } catch (error) {
+    state.devices = state.devices.map(device => device.integration === 'hue'
+      ? { ...device, online: false, syncError: error.message }
+      : device);
+    state.integrations.hue.lastSync = new Date().toISOString();
+    state.integrations.hue.syncError = error.message;
+  }
   persist();
   return state.devices;
 }
