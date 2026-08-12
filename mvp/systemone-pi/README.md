@@ -23,6 +23,16 @@ Local-first Core mit normalisiertem Device Model. Standardmäßig läuft alles i
 - transaktionaler Restore mit Rollback des In-Memory- und Dateizustands
 - explizite Allowlist: nur Räume, Simulationsgeräte und Theme; keine Hue-Geräte, Credentials oder Tokens
 
+## Automation Engine v1
+
+- lokales Modell mit Geräte-Trigger, optionalen Bedingungen und Geräteaktionen
+- typsichere Operatoren `equals`, `notEquals`, `above` und `below`
+- drei einfache Vorlagen: Sensor schaltet Licht, Temperatur steuert Thermostat, Gerät ausschalten
+- Aktivieren, Pausieren und Löschen über API und Clear-UI
+- Aktionen laufen durch denselben Adapter- und Capability-Layer wie manuelle Befehle
+- letzter Lauf und strukturierter Aktionsfehler bleiben sichtbar und persistent
+- Schutz vor rekursiver Ausführung derselben Automation
+
 ## Sicherheitsregel
 
 ```bash
@@ -99,6 +109,12 @@ HUE_SIM_FAULT=command npm start
 - `POST /api/onboarding/pair-admin/complete`
 - `GET /api/backup`
 - `POST /api/backup/restore`
+- `GET /api/automations`
+- `GET /api/automations/templates`
+- `POST /api/automations`
+- `POST /api/automations/from-template`
+- `PATCH /api/automations/:id`
+- `DELETE /api/automations/:id`
 
 ## Aktuelle Core-Selftests
 
@@ -123,6 +139,12 @@ HUE_SIM_FAULT=command npm start
 19. Erkennung manipulierter Backups
 20. Migration von Backup v1
 21. Ausschluss von Hue-Geräten und Secrets
+22. typsichere Automationsvergleiche
+23. Erzeugung aus Vorlage
+24. Abweisung unpassender Geräteprofile
+25. lokale Geräteaktion
+26. deaktivierte Automation
+27. diagnostizierbarer Aktionsfehler
 
 ## Noch nicht produktionsreif
 
@@ -131,7 +153,7 @@ Vor Kundeneinsatz fehlen weiterhin TLS/Reverse-Proxy-Härtung, echtes Berechtigu
 ## Danach
 
 - Backup Schema v2 mit SHA-256, Validierung, Migration und atomarem Restore
-- Automationsvorlagen implementieren
+- Zeit-/Sonnenereignisse und erweitertes Bedingungsmodell ergänzen
 - YouDo-Modul-Hooks ergänzen
 - anschließend weitere SystemONE-Module in denselben Simulations-/Diagnoserahmen integrieren
 

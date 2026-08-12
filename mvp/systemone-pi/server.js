@@ -13,6 +13,7 @@ const { DeviceRegistry } = require('./lib/device-registry');
 const { SimulationAdapter } = require('./lib/simulation');
 const { assertAdapter } = require('./lib/adapter');
 const { createBackup, validateBackup } = require('./lib/backup');
+const { AutomationEngine, TEMPLATES, validateAutomation } = require('./lib/automations');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -28,7 +29,8 @@ const initialState = {
   onboarding: { completed: false, adminPaired: false, selectedTheme: 'Clear', pairingSession: null },
   integrations: { hue: { discovered: false, paired: false, bridge: null, lastSync: null, syncError: null, mode: 'simulation', reconnect: reconnect.snapshot() } },
   rooms: [{ id: 'living', name: 'Wohnzimmer' }, { id: 'office', name: 'Büro' }, { id: 'bedroom', name: 'Schlafzimmer' }],
-  devices: []
+  devices: [],
+  automations: []
 };
 
 const persisted = storage.loadState(initialState);
@@ -38,7 +40,8 @@ const state = {
   onboarding: { ...initialState.onboarding, ...(persisted.onboarding || {}), pairingSession: null },
   integrations: { ...initialState.integrations, ...(persisted.integrations || {}), hue: { ...initialState.integrations.hue, ...(persisted.integrations?.hue || {}), reconnect: reconnect.snapshot() } },
   rooms: Array.isArray(persisted.rooms) ? persisted.rooms : initialState.rooms,
-  devices: Array.isArray(persisted.devices) ? persisted.devices.map(migrateLegacyDevice) : []
+  devices: Array.isArray(persisted.devices) ? persisted.devices.map(migrateLegacyDevice) : [],
+  automations: Array.isArray(persisted.automations) ? persisted.automations : []
 };
 
 const demoDevices = [
@@ -51,10 +54,27 @@ const adapters = new Map([['hue', assertAdapter(hue)], ['simulation', assertAdap
 const registry = new DeviceRegistry(state.devices);
 state.integrations.hue.mode = hue.mode;
 
+async function applyDeviceCapabilities(deviceId, capabilityPatch) {
+  const device = registry.get(deviceId);
+  if (!device) throw Object.assign(new Error('Gerät nicht gefunden.'), { code: 'DEVICE_NOT_FOUND' });
+  if (!device.online) throw Object.assign(new Error(`${device.name} ist offline.`), { code: 'DEVICE_OFFLINE' });
+  const adapter = adapters.get(device.integration);
+  if (!adapter) throw Object.assign(new Error('Geräteadapter ist nicht verfügbar.'), { code: 'ADAPTER_NOT_FOUND' });
+  const validated = validateCapabilities(device.profile, capabilityPatch, { partial: true });
+  const applied = await adapter.applyCapabilities(device, validated);
+  return registry.patch(device.id, { capabilities: applied, diagnostics: { lastSeen: new Date().toISOString(), lastError: null } });
+}
+
+const validPersistedAutomations = state.automations.flatMap(value => { try { return [validateAutomation(value, registry)]; } catch (error) { diagnostics.record('AUTOMATION_INVALID', 'Gespeicherte Automation wurde übersprungen.', { cause: error.message }); return []; } });
+const automationEngine = new AutomationEngine({ registry, automations: validPersistedAutomations, executeAction: action => applyDeviceCapabilities(action.deviceId, action.capabilities) });
+state.automations = automationEngine.list();
+
 function syncRegistryState() { state.devices = registry.list(); }
 registry.on('device.added', syncRegistryState);
 registry.on('device.updated', syncRegistryState);
 registry.on('registry.changed', syncRegistryState);
+automationEngine.on('changed', automations => { state.automations = automations; });
+automationEngine.on('executed', automation => { if (automation.lastError) diagnostics.record('AUTOMATION_ACTION_FAILED', automation.lastError.message, { automationId: automation.id }); });
 
 function updateReconnectState() { state.integrations.hue.reconnect = reconnect.snapshot(); }
 function persist() {
@@ -68,7 +88,7 @@ function json(res, status, data) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify({ success: status < 400, data: status < 400 ? data : null, error: status >= 400 ? data : null }));
 }
-function publicState() { return { ...state, devices: registry.list({ publicOnly: true }) }; }
+function publicState() { return { ...state, devices: registry.list({ publicOnly: true }), automations: automationEngine.list() }; }
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -183,6 +203,13 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/system') return json(res, 200, state.system);
     if (req.method === 'GET' && url.pathname === '/api/state') { if (url.searchParams.get('sync') === '1' && reconnect.state !== 'backoff') await syncHue(); updateReconnectState(); return json(res, 200, publicState()); }
     if (req.method === 'GET' && url.pathname === '/api/backup') return json(res, 200, exportBackup());
+    if (req.method === 'GET' && url.pathname === '/api/automations/templates') return json(res, 200, TEMPLATES);
+    if (req.method === 'GET' && url.pathname === '/api/automations') return json(res, 200, automationEngine.list());
+    if (req.method === 'POST' && url.pathname === '/api/automations') { const item = automationEngine.add(await readBody(req)); persist(); return json(res, 201, item); }
+    if (req.method === 'POST' && url.pathname === '/api/automations/from-template') { const body = await readBody(req); const item = automationEngine.addFromTemplate(body.templateId, body); persist(); return json(res, 201, item); }
+    const automationMatch = url.pathname.match(/^\/api\/automations\/([^/]+)$/);
+    if (automationMatch && req.method === 'PATCH') { const body = await readBody(req); const item = automationEngine.setEnabled(automationMatch[1], body.enabled); if (!item) return json(res, 404, { code: 'AUTOMATION_NOT_FOUND', message: 'Automation nicht gefunden.' }); persist(); return json(res, 200, item); }
+    if (automationMatch && req.method === 'DELETE') { if (!automationEngine.remove(automationMatch[1])) return json(res, 404, { code: 'AUTOMATION_NOT_FOUND', message: 'Automation nicht gefunden.' }); persist(); return json(res, 200, { deleted: true }); }
     if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/session') return json(res, 201, await createPairingSession());
     if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/complete') return json(res, 200, completePairing(await readBody(req)));
     if (req.method === 'GET' && url.pathname === '/api/integrations/hue/discover') return json(res, 200, await discoverHue());
@@ -202,10 +229,8 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       const capabilityPatch = body.capabilities ? validateCapabilities(device.profile, body.capabilities, { partial: true }) : {};
       if (Object.keys(capabilityPatch).length) {
-        if (!device.online) return json(res, 409, { code: 'HUE_DEVICE_OFFLINE', message: `${device.name} ist offline.` });
-        const adapter = adapters.get(device.integration);
-        if (!adapter) return json(res, 409, { code: 'ADAPTER_NOT_FOUND', message: 'Geräteadapter ist nicht verfügbar.' });
-        registry.patch(device.id, { capabilities: await adapter.applyCapabilities(device, capabilityPatch), diagnostics: { lastSeen: new Date().toISOString(), lastError: null } });
+        await applyDeviceCapabilities(device.id, capabilityPatch);
+        await automationEngine.handleDeviceChange(device.id);
       }
       const metadata = {};
       if (typeof body.name === 'string' && body.name.trim()) metadata.name = body.name.trim().slice(0, 60);
@@ -230,7 +255,7 @@ const server = http.createServer(async (req, res) => {
     return json(res, 404, { code: 'NOT_FOUND', message: 'Route nicht gefunden.' });
   } catch (error) {
     diagnostics.record(error.code || 'INTERNAL_ERROR', error.message || 'Unbekannter Fehler.', error.details || {});
-    const conflictCodes = ['HUE_LINK_BUTTON_REQUIRED','PAIRING_SESSION_EXPIRED','PAIRING_INVALID','HUE_DEVICE_OFFLINE'];
+    const conflictCodes = ['HUE_LINK_BUTTON_REQUIRED','PAIRING_SESSION_EXPIRED','PAIRING_INVALID','HUE_DEVICE_OFFLINE','DEVICE_OFFLINE'];
     return json(res, conflictCodes.includes(error.code) ? 409 : 400, { code: error.code || 'INTERNAL_ERROR', message: error.message || 'Ungültige Anfrage.' });
   }
 });
