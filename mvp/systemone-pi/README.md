@@ -1,129 +1,105 @@
-# SystemONE Pi MVP v0.2
+# SystemONE Pi MVP v0.3
 
-Zweite lauffähige lokale Version des SystemONE-Pi-Vertical-Slice aus dem Notion-MVP. v0.2 ersetzt den reinen Hue-Demo-Fluss durch einen echten lokalen Adapter und ergänzt persistente Räume/Gerätenamen sowie Live-State-Synchronisierung.
+v0.3 ist eine hardware-sichere Entwicklungs- und Diagnoseversion. Sie ist dafür gedacht, SystemONE theoretisch und reproduzierbar zu testen, **ohne das produktive Philips-Hue-System anzufassen**.
 
-## Enthalten
+## Sicherheitsregel
 
-- lokale Node.js-API ohne externe npm-Dependencies
-- Clear-Theme SystemONE Dashboard
-- lokales Admin-Pairing als MVP-Zustand
-- Philips-Hue-Discovery per SSDP im lokalen Netzwerk
-- optional feste Bridge-IP über `HUE_BRIDGE_IP`
-- physischer Hue-Link-Button-Pairing-Flow
-- lokale Hue-Credentials getrennt vom normalen Zustand
-- echte Hue-Lampen laden, schalten und dimmen
-- automatische Zustands-Synchronisierung alle 3 Sekunden
-- Offline-/Syncfehler in der Oberfläche
-- lokale Gerätenamen und Raumzuweisungen
-- neue Räume direkt in der Oberfläche anlegen
-- persistente lokale Konfiguration unter `data/`
-- Demo-Modus weiterhin über `HUE_MODE=mock`
+`npm start` läuft standardmäßig im **Simulationsmodus**. In diesem Modus werden weder SSDP-Anfragen an das Heimnetz gesendet noch Hue-HTTP-Endpunkte aufgerufen.
 
-## Local-first & Datenspeicherung
+Echte Hue-Kommunikation ist nur nach bewusster Freigabe möglich:
 
-SystemONE benötigt für diesen MVP keine Pipercat-Cloud. Laufzeitdaten werden standardmäßig unter `mvp/systemone-pi/data/` gespeichert und durch `.gitignore` nicht versioniert.
+```bash
+HUE_MODE=real npm start
+```
 
-- `data/state.json` – System-, Raum- und Gerätekonfiguration
-- `data/secrets.json` – lokale Hue-Bridge-/Credential-Daten
+Damit kann die private Installation bis zu einem späteren Hardware-Pilot unverändert bleiben.
 
-Die Dateien werden vom Prozess mit restriktiven Dateirechten angelegt. Der Speicherort kann mit `SYSTEMONE_DATA_DIR` geändert werden.
+## v0.3 enthält
 
-## Start
+- Diagnose-Engine mit strukturierten Fehlercodes, Schweregrad und Handlungsempfehlung
+- `/api/health` und `/api/diagnostics`
+- Fehlerprotokoll ohne Ausgabe von Tokens/Credentials
+- Hue-Simulation mit Bridge-Fund, Pairing, Lampen, Schalten und Dimmen
+- künstliche Fehlerfälle: Bridge nicht gefunden, Link-Button fehlt, Timeout, Auth-Fehler, Gerät offline und Befehlsfehler
+- fünf Geräteprofile: Licht, Steckdose/Schalter, Sensor, Thermostat und Rollladen/Jalousie
+- simuliertes „Gerät hinzufügen“ über die Oberfläche
+- persistente Räume und simulierte Geräte
+- zeitlich begrenzte Admin-Pairing-Sitzung mit Token, 6-stelligem Code und vorbereitetem `systemone://pair`-Payload für späteres QR-Pairing
+- lokale Backup-/Restore-API für Räume und Simulationsgeräte; Secrets werden nicht exportiert
+- echte Hue-Integration bleibt hinter `HUE_MODE=real` vorhanden
 
-Voraussetzung: Node.js 20 oder neuer.
+## Start und Prüfung
 
 ```bash
 cd mvp/systemone-pi
 npm run check
+npm test
 npm start
 ```
 
-Danach im Browser öffnen:
+Browser:
 
 ```text
 http://localhost:4170
 ```
 
-Im LAN ist der Dienst auf `0.0.0.0:4170` erreichbar.
-
-## Echte Philips Hue Bridge koppeln
-
-1. SystemONE Pi und Hue Bridge müssen im selben lokalen Netzwerk erreichbar sein.
-2. `npm start` ausführen.
-3. In SystemONE auf **Hue suchen** klicken.
-4. Wird die Bridge nicht automatisch gefunden, kann ihre lokale IPv4-Adresse gesetzt werden:
+## Fehler simulieren
 
 ```bash
-HUE_BRIDGE_IP=192.168.178.42 npm start
+HUE_SIM_FAULT=not-found npm start
+HUE_SIM_FAULT=link-button npm start
+HUE_SIM_FAULT=timeout npm start
+HUE_SIM_FAULT=auth npm start
+HUE_SIM_FAULT=offline npm start
+HUE_SIM_FAULT=command npm start
 ```
 
-5. Nach dem Fund die physische Link-Taste auf der Hue Bridge drücken.
-6. In SystemONE erneut auf **Link-Taste drücken & koppeln** klicken.
-7. Die Lampen werden geladen und anschließend laufend synchronisiert.
+Diese Varianten bleiben im Simulationsmodus und sprechen keine echte Hue Bridge an.
 
-Es werden nur private/lokale IPv4-Adressen als Bridge-Ziel akzeptiert.
+## Automatischer Selftest
 
-## Demo ohne Hue-Hardware
+`npm test` prüft derzeit acht hardwarefreie Szenarien:
 
-```bash
-HUE_MODE=mock npm start
-```
+1. Simulationsmodus verwendet nur `127.0.0.1`
+2. Bridge nicht gefunden
+3. Link-Button-Fehler
+4. Timeout
+5. ungültige Hue-Authentifizierung
+6. Offline-Lampe
+7. fehlgeschlagener Steuerbefehl
+8. lokale Persistenz
 
-Damit wird eine lokale Demo-Bridge mit zwei Lampen verwendet. Auch Namen und Raumzuweisungen werden persistent gespeichert.
-
-## API v0.2
+## API v0.3
 
 - `GET /api/health`
+- `GET /api/diagnostics`
 - `GET /api/system`
 - `GET /api/state`
-- `GET /api/state?sync=1`
+- `GET /api/profiles`
 - `GET /api/rooms`
 - `POST /api/rooms`
 - `GET /api/devices`
+- `POST /api/devices/simulate`
+- `PATCH /api/devices/:id`
 - `GET /api/integrations/hue/discover`
 - `POST /api/integrations/hue/pair`
 - `POST /api/integrations/hue/sync`
-- `POST /api/onboarding/pair-admin`
-- `PATCH /api/devices/:id`
-
-Antwortformat:
-
-```json
-{ "success": true, "data": {}, "error": null }
-```
-
-## MVP-Stand
-
-### v0.1 – abgeschlossen
-- lokales Dashboard
-- Mock-Hue-Flow
-- Schalten/Dimmen
-- Offline-Darstellung
-
-### v0.2 – umgesetzt
-- echte lokale Hue-Discovery
-- Link-Button-Kopplung
-- echte Lichtliste und State-Synchronisierung
-- persistente Räume/Gerätenamen
-- lokale Credential-Ablage
-
-### v0.3 – als Nächstes
-- QR-basiertes Admin-Pairing
-- Geräteprofile für Schalter, Sensor, Thermostat und Rollladen
-- geführtes „Gerät hinzufügen“
-- robustere Netzwerk-/Reconnect-Logik
-- erste lokale Backup-/Restore-Funktion
-
-### später
-- Clear, Midnight, Compact und Living
-- Automationsvorlagen
-- YouDo-Modulschalter
-- Flutter-App
+- `POST /api/onboarding/pair-admin/session`
+- `POST /api/onboarding/pair-admin/complete`
+- `GET /api/backup`
+- `POST /api/backup/restore`
 
 ## Noch nicht produktionsreif
 
-Der MVP ist bewusst ein Entwicklungsstand. Vor Kundeneinsatz fehlen unter anderem TLS/Reverse-Proxy-Härtung, echte Geräteidentitäten/Zertifikate, abgesichertes Admin-Pairing, Berechtigungsmodell, Update-Signaturen, Backup/Restore-Tests und ein vollständiges Security-Review.
+Kein Kundeneinsatz: TLS/Reverse-Proxy-Härtung, echtes Berechtigungsmodell, Geräteidentitäten/Zertifikate, signierte Updates, vollständige Backup-Validierung, Rate-Limits, CSRF-/Session-Schutz und Security-Review fehlen noch. Ein echter Hue-Hardwaretest wird bewusst erst später gemacht.
 
-## Nicht Teil dieses Pi-MVP
+## Nächste Entwicklungsstufe
 
-PEET/Sprachsteuerung, Pipercat-Control-Plane, Pipercat-Push, Kameraaufzeichnung/-KI, Import bestehender Home-Assistant-Systeme und garantierter CGNAT-Fernzugriff.
+- Diagnosematrix weiter ausbauen und Reconnect-Zustandsmaschine ergänzen
+- QR-Darstellung für das vorbereitete Admin-Pairing
+- Geräteprofil-Validierung und Capability-Layer ausbauen
+- geführten Einrichtungsassistenten vervollständigen
+- Backup/Restore mit Prüfsumme und Versionsmigration härten
+- danach Automationsvorlagen und YouDo-Modul-Hooks
+
+PEET, Pipercat-Control-Plane, Fernzugriff, Pipercat-Push und Kameraaufzeichnung/-KI bleiben außerhalb dieses Pi-MVPs.
