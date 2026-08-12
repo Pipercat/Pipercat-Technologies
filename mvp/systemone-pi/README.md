@@ -50,6 +50,8 @@ Local-first Core mit normalisiertem Device Model. Standardmäßig läuft alles i
 - Sonnenauf-/Sonnenuntergang als injizierbare lokale Provider-Abstraktion vorbereitet
 - Sonnenereignisse bleiben ohne konfigurierten Standortprovider sicher inaktiv
 - Offset von bis zu zwölf Stunden vor oder nach einem Sonnenereignis
+- lokales Hausmodell mit Name, Breiten- und Längengrad
+- Sonnenzeiten werden direkt auf SystemONE Pi berechnet; keine Standortdaten verlassen das Gerät
 
 ## Sicherheitsregel
 
@@ -134,6 +136,8 @@ HUE_SIM_FAULT=command npm start
 - `PATCH /api/automations/:id`
 - `DELETE /api/automations/:id`
 - `GET /api/automations/scheduler`
+- `GET /api/home`
+- `PATCH /api/home`
 
 ## Aktuelle Core-Selftests
 
@@ -173,6 +177,8 @@ HUE_SIM_FAULT=command npm start
 34. Ignorieren nicht fälliger Zeit
 35. Sonnenereignis mit lokalem Provider
 36. sicher inaktives Sonnenereignis ohne Provider
+37. Standortvalidierung
+38. lokale Sonnenzeitberechnung
 
 ## Noch nicht produktionsreif
 

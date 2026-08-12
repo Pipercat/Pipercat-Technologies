@@ -15,6 +15,7 @@ const { assertAdapter } = require('./lib/adapter');
 const { createBackup, validateBackup } = require('./lib/backup');
 const { AutomationEngine, TEMPLATES, validateAutomation } = require('./lib/automations');
 const { AutomationScheduler } = require('./lib/scheduler');
+const { validateLocation, calculateSolarEvents } = require('./lib/solar');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -28,6 +29,7 @@ const DEVICE_PROFILES = publicProfiles();
 const initialState = {
   system: { name: 'SystemONE Pi', version: '0.4.0', mode: 'local', online: true },
   onboarding: { completed: false, adminPaired: false, selectedTheme: 'Clear', pairingSession: null },
+  home: { name: 'Mein Zuhause', location: null },
   integrations: { hue: { discovered: false, paired: false, bridge: null, lastSync: null, syncError: null, mode: 'simulation', reconnect: reconnect.snapshot() } },
   rooms: [{ id: 'living', name: 'Wohnzimmer' }, { id: 'office', name: 'Büro' }, { id: 'bedroom', name: 'Schlafzimmer' }],
   devices: [],
@@ -39,6 +41,7 @@ const state = {
   ...initialState, ...persisted,
   system: { ...initialState.system, ...(persisted.system || {}), version: '0.4.0' },
   onboarding: { ...initialState.onboarding, ...(persisted.onboarding || {}), pairingSession: null },
+  home: { ...initialState.home, ...(persisted.home || {}), location: persisted.home?.location || null },
   integrations: { ...initialState.integrations, ...(persisted.integrations || {}), hue: { ...initialState.integrations.hue, ...(persisted.integrations?.hue || {}), reconnect: reconnect.snapshot() } },
   rooms: Array.isArray(persisted.rooms) ? persisted.rooms : initialState.rooms,
   devices: Array.isArray(persisted.devices) ? persisted.devices.map(migrateLegacyDevice) : [],
@@ -68,7 +71,7 @@ async function applyDeviceCapabilities(deviceId, capabilityPatch) {
 
 const validPersistedAutomations = state.automations.flatMap(value => { try { return [validateAutomation(value, registry)]; } catch (error) { diagnostics.record('AUTOMATION_INVALID', 'Gespeicherte Automation wurde übersprungen.', { cause: error.message }); return []; } });
 const automationEngine = new AutomationEngine({ registry, automations: validPersistedAutomations, executeAction: action => applyDeviceCapabilities(action.deviceId, action.capabilities) });
-const scheduler = new AutomationScheduler({ engine: automationEngine });
+const scheduler = new AutomationScheduler({ engine: automationEngine, solarProvider: async date => state.home.location ? calculateSolarEvents(date, state.home.location) : null });
 state.automations = automationEngine.list();
 
 function syncRegistryState() { state.devices = registry.list(); }
@@ -203,6 +206,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/setup') return json(res, 200, setupStatus());
     if (req.method === 'GET' && url.pathname === '/api/profiles') return json(res, 200, DEVICE_PROFILES);
     if (req.method === 'GET' && url.pathname === '/api/system') return json(res, 200, state.system);
+    if (req.method === 'GET' && url.pathname === '/api/home') return json(res, 200, state.home);
+    if (req.method === 'PATCH' && url.pathname === '/api/home') { const body = await readBody(req); if (typeof body.name === 'string' && body.name.trim()) state.home.name = body.name.trim().slice(0, 80); if (body.location !== undefined) state.home.location = body.location === null ? null : validateLocation(body.location); persist(); return json(res, 200, state.home); }
     if (req.method === 'GET' && url.pathname === '/api/state') { if (url.searchParams.get('sync') === '1' && reconnect.state !== 'backoff') await syncHue(); updateReconnectState(); return json(res, 200, publicState()); }
     if (req.method === 'GET' && url.pathname === '/api/backup') return json(res, 200, exportBackup());
     if (req.method === 'GET' && url.pathname === '/api/automations/templates') return json(res, 200, TEMPLATES);
