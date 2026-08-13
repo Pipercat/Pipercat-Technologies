@@ -13,7 +13,7 @@ const { DeviceRegistry } = require('./lib/device-registry');
 const { SimulationAdapter } = require('./lib/simulation');
 const { assertAdapter } = require('./lib/adapter');
 const { createBackup, validateBackup, summarizeBackup } = require('./lib/backup');
-const { AutomationEngine, TEMPLATES, validateAutomation } = require('./lib/automations');
+const { AutomationEngine, TEMPLATES, validateAutomation, builderOptions } = require('./lib/automations');
 const { AutomationScheduler } = require('./lib/scheduler');
 const { validateLocation, calculateSolarEvents } = require('./lib/solar');
 const { THEMES, validateTheme } = require('./lib/themes');
@@ -246,6 +246,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/i18n/messages') return json(res, 200, messagesFor(url.searchParams.get('locale') || state.onboarding.locale));
     if (req.method === 'PATCH' && url.pathname === '/api/settings/locale') { const body = await readBody(req); state.onboarding.locale = validateLocale(body.locale); persist(); return json(res, 200, { locale: state.onboarding.locale }); }
     if (req.method === 'GET' && url.pathname === '/api/profiles') return json(res, 200, DEVICE_PROFILES);
+    if (req.method === 'GET' && url.pathname === '/api/automations/builder-options') return json(res, 200, { devices: builderOptions(registry), operators: { equals: 'ist gleich', notEquals: 'ist nicht gleich', above: 'größer als', below: 'kleiner als' } });
     if (req.method === 'GET' && url.pathname === '/api/compatibility') return json(res, 200, publicCompatibilityCatalog());
     if (req.method === 'GET' && url.pathname === '/api/device-onboarding/integrations') return json(res, 200, availableIntegrations(hue.mode));
     if (req.method === 'GET' && url.pathname === '/api/device-onboarding/discover') return json(res, 200, { integration: url.searchParams.get('integration') || 'simulation', scannedAt: new Date().toISOString(), candidates: discoverCandidates(url.searchParams.get('integration') || 'simulation', registry.list()) });

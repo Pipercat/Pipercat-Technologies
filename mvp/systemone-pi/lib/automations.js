@@ -65,6 +65,13 @@ function fromTemplate(id, input, registry) {
   return validateAutomation({ name: input.name || template.name, trigger: { type: 'device', deviceId: triggerDevice.id, capability: input.triggerCapability || (triggerDevice.profile === 'sensor' ? 'value' : 'power'), operator: 'equals', value: input.triggerValue ?? true }, actions: [{ type: 'device', deviceId: actionDevice.id, capabilities: { power: false } }] }, registry);
 }
 
+function builderOptions(registry) {
+  return registry.list({ publicOnly: true }).map(device => ({ id: device.id, name: device.name, profile: device.profile,
+    fields: Object.entries(device.capabilities).filter(([, value]) => ['string','number','boolean'].includes(typeof value)).map(([capability, value]) => ({ capability, valueType: typeof value, operators: typeof value === 'number' ? ['above','below','equals','notEquals'] : ['equals','notEquals'] })),
+    actions: device.profile === 'thermostat' ? ['targetTemperature'] : device.profile === 'blind' ? ['position'] : ['power']
+  }));
+}
+
 class AutomationEngine extends EventEmitter {
   constructor({ registry, executeAction, automations = [] }) {
     super(); this.registry = registry; this.executeAction = executeAction; this.running = new Set();
@@ -72,7 +79,18 @@ class AutomationEngine extends EventEmitter {
   }
   list() { return this.automations.map(value => structuredClone(value)); }
   add(input) { const automation = validateAutomation(input, this.registry); this.automations.push(automation); this.emit('changed', this.list()); return structuredClone(automation); }
-  addFromTemplate(id, input) { return this.add(fromTemplate(id, input, this.registry)); }
+  addFromTemplate(id, input) {
+    const draft = fromTemplate(id, input, this.registry);
+    if (input.secondActionDeviceId) {
+      const target = this.registry.get(input.secondActionDeviceId);
+      if (!target) throw automationError('Zweites Aktionsgerät wurde nicht gefunden.');
+      const firstCapabilities = draft.actions[0].capabilities;
+      const capabilities = target.profile === 'thermostat' ? { targetTemperature: Number(input.secondActionValue || 21) } : target.profile === 'blind' ? { position: Number(input.secondActionValue || 100) } : { power: firstCapabilities.power !== false };
+      draft.actions.push({ type: 'device', deviceId: target.id, capabilities });
+    }
+    if (input.conditionDeviceId) draft.conditions.push(validatePredicate({ deviceId: input.conditionDeviceId, capability: input.conditionCapability, operator: input.conditionOperator, value: input.conditionValue }, 'Bedingung'));
+    return this.add(draft);
+  }
   setEnabled(id, enabled) { const item = this.automations.find(value => value.id === id); if (!item) return null; item.enabled = Boolean(enabled); this.emit('changed', this.list()); return structuredClone(item); }
   remove(id) { const before = this.automations.length; this.automations = this.automations.filter(value => value.id !== id); if (before !== this.automations.length) this.emit('changed', this.list()); return before !== this.automations.length; }
   matches(predicate) { const device = this.registry.get(predicate.deviceId); return Boolean(device && compare(device.capabilities[predicate.capability], predicate.operator, predicate.value)); }
@@ -106,4 +124,4 @@ class AutomationEngine extends EventEmitter {
   }
 }
 
-module.exports = { AutomationEngine, TEMPLATES, compare, validateAutomation, fromTemplate };
+module.exports = { AutomationEngine, TEMPLATES, compare, validateAutomation, fromTemplate, builderOptions };
