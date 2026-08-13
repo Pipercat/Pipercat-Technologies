@@ -27,7 +27,7 @@ const { displayState } = require('./lib/display-state');
 const { defaultDashboard, validateDashboard, migrateDashboard } = require('./lib/dashboard-layout');
 const { DEFAULT_LOCALE, validateLocale, localeCatalog, messagesFor } = require('./lib/i18n');
 const { normalizedDeviceEvent } = require('./lib/device-events');
-const { securityHeaders, validateHost, validateWriteRequest, RateLimiter } = require('./lib/web-security');
+const { securityHeaders, validateHost, validateWriteRequest, assertBootstrapWrite, RateLimiter } = require('./lib/web-security');
 const { AuditLog } = require('./lib/audit-log');
 const { certificateStatus } = require('./lib/tls-identity');
 const { validateUpdatePackage, approveUpdate } = require('./lib/update-package');
@@ -271,6 +271,7 @@ const requestHandler = async (req, res) => {
     const clientKey=String(req.socket.remoteAddress||'local'),mutating=!['GET','HEAD','OPTIONS'].includes(req.method);let auditActor=null;if(mutating)res.once('finish',()=>{auditLog.record({method:req.method,path:url.pathname,status:res.statusCode,outcome:res.statusCode<400?'success':'failure',actor:auditActor,error:res._auditError});state.auditLog=auditLog.list();persist()});validateHost(req);validateWriteRequest(req);
     const pairingBootstrap = req.method === 'POST' && ['/api/onboarding/pair-admin/session','/api/onboarding/pair-admin/complete','/api/display/session'].includes(url.pathname);
     if(mutating){writeLimiter.consume(clientKey);if(url.pathname==='/api/onboarding/pair-admin/session')pairingLimiter.consume(clientKey);if(['/api/onboarding/pair-admin/complete','/api/display/session'].includes(url.pathname))loginLimiter.consume(clientKey)}
+    if(mutating&&!state.onboarding.adminPaired)assertBootstrapWrite({adminPaired:false,method:req.method,path:url.pathname,currentStep:state.onboarding.flow.currentStep});
     if (state.onboarding.adminPaired && mutating && !pairingBootstrap) auditActor=requireSession(req, 'system:write');
     if (req.method === 'GET' && url.pathname === '/api/events/devices') {
       res.writeHead(200, { ...securityHeaders(), 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive' });
@@ -402,7 +403,7 @@ const requestHandler = async (req, res) => {
     res._auditError={code:error.code||'INTERNAL_ERROR',message:error.message};
     diagnostics.record(error.code || 'INTERNAL_ERROR', error.message || 'Unbekannter Fehler.', error.details || {});
     const conflictCodes = ['HUE_LINK_BUTTON_REQUIRED','PAIRING_SESSION_ACTIVE','PAIRING_SESSION_EXPIRED','PAIRING_INVALID','PAIRING_RATE_LIMITED','HUE_DEVICE_OFFLINE','DEVICE_OFFLINE'];
-    const authCodes = ['SESSION_INVALID','SESSION_REVOKED','SESSION_EXPIRED'], forbiddenCodes = ['SESSION_FORBIDDEN','HOST_FORBIDDEN','CSRF_ORIGIN_INVALID','CSRF_TOKEN_MISSING'],rateCodes=['RATE_LIMITED'];
+    const authCodes = ['SESSION_INVALID','SESSION_REVOKED','SESSION_EXPIRED'], forbiddenCodes = ['SESSION_FORBIDDEN','ADMIN_PAIRING_REQUIRED','HOST_FORBIDDEN','CSRF_ORIGIN_INVALID','CSRF_TOKEN_MISSING'],rateCodes=['RATE_LIMITED'];
     return json(res,error.code==='REQUEST_BODY_TOO_LARGE'?413:authCodes.includes(error.code) ? 401 : forbiddenCodes.includes(error.code) ? 403 : rateCodes.includes(error.code)?429:conflictCodes.includes(error.code) ? 409 : 400, { code: error.code || 'INTERNAL_ERROR', message: error.message || 'Ungültige Anfrage.' });
   }
 };
