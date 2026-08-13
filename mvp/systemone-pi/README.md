@@ -288,6 +288,8 @@ Der Befehl schlägt bis zur echten Pilotfreigabe bewusst fehl und listet die off
 
 Vor Kundeneinsatz fehlen weiterhin TLS/Reverse-Proxy-Härtung, Geräteidentitäten/Zertifikate, signierte Updates, umfassende API-Rate-Limits, zusätzliche Origin-/CSRF-Prüfungen, vollständige Backup-Migrationen und ein Security-Review. Lokale Rollen, ablaufende Sessions, Pairing-Rate-Limit und `SameSite=Strict`-Cookies sind als MVP-Basis vorhanden. Der echte Hue-Hardwaretest bleibt bewusst für einen späteren Pilot zurückgestellt.
 
+Die aktuelle, bewusst konservative Hue-Freigabe sowie das wiederholbare Hardwareprotokoll stehen in [`docs/hue-support-matrix.md`](docs/hue-support-matrix.md). Kein reales Hue-Modell wird vor einem protokollierten Hardwarelauf als Certified ausgewiesen.
+
 ## Danach
 
 - Backup Schema v2 mit SHA-256, Validierung, Migration und atomarem Restore
