@@ -41,6 +41,7 @@ const { GoveeAdapter, LOCAL_MODEL_ALLOWLIST, CLOUD_ONLY_EXCLUDED } = require('./
 const { publicPilotPlan } = require('./lib/integration-pilots');
 const { API_VERSION, normalizeApiPath, responseEnvelope, publicContract } = require('./lib/api-contract');
 const { shouldServeAppShell, staticResponseHeaders } = require('./lib/http-routing');
+const { createGracefulShutdown } = require('./lib/process-lifecycle');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -414,9 +415,18 @@ server.listen(PORT, '0.0.0.0', async () => {
   if(!backupManager.list().length)runBackupCycle();
   await discoverHue(); if (state.integrations.hue.paired) await syncHue();
 });
-setInterval(async () => {
+const hueSyncTimer=setInterval(async () => {
   if (!state.integrations.hue.paired) return;
   if (reconnect.canRetry()) { reconnect.beginAttempt(); updateReconnectState(); await syncHue(); return; }
   if (reconnect.state !== 'backoff') await syncHue();
-}, 3000).unref();
-setInterval(()=>{try{runBackupCycle()}catch{}},Math.max(3600000,Number(process.env.BACKUP_INTERVAL_MS)||86400000)).unref();
+}, 3000);hueSyncTimer.unref();
+const backupTimer=setInterval(()=>{try{runBackupCycle()}catch{}},Math.max(3600000,Number(process.env.BACKUP_INTERVAL_MS)||86400000));backupTimer.unref();
+
+const shutdown=createGracefulShutdown({
+  stop:()=>{clearInterval(hueSyncTimer);clearInterval(backupTimer);scheduler.stop();for(const client of deviceEventClients)client.end();deviceEventClients.clear()},
+  persist,
+  close:done=>server.close(done),
+  timeoutMs:10000
+});
+process.once('SIGTERM',()=>void shutdown('SIGTERM'));
+process.once('SIGINT',()=>void shutdown('SIGINT'));
