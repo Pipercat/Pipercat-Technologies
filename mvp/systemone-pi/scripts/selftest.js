@@ -27,6 +27,7 @@ const {CameraModule,CameraSecretStore,validateCameraInput}=require('../lib/camer
 const {PiHoleModule,validateBaseUrl}=require('../lib/pihole-module');
 const {ModuleRegistry,validateManifest,createYouDoModules}=require('../lib/module-registry');
 const {GoveeAdapter,LOCAL_MODEL_ALLOWLIST,CLOUD_ONLY_EXCLUDED,assertLocalModel}=require('../lib/govee');
+const {publicPilotPlan,validatePilotPlan}=require('../lib/integration-pilots');
 const demo=[{id:'hue-1',hueId:'1',integration:'hue',type:'light',name:'Testlicht',online:true,on:false,brightness:50}];
 async function adapter(fault=''){process.env.HUE_MODE='simulation';process.env.HUE_SIM_FAULT=fault;const dir=fs.mkdtempSync(path.join(os.tmpdir(),'systemone-test-'));const storage=new LocalStorage(dir);return {hue:new HueAdapter({storage,demoDevices:demo,diagnostics:new Diagnostics()}),dir}}
 (async()=>{let passed=0;async function test(name,fn){try{await fn();passed++;console.log(`✓ ${name}`)}catch(e){console.error(`✗ ${name}: ${e.message}`);process.exitCode=1}}
@@ -200,4 +201,8 @@ await test('Govee-Fehlerfälle sind strukturiert',async()=>{const timeout=new Go
 await test('Nur dokumentierte lokale Govee-Allowlist wird akzeptiert',async()=>{assert.deepEqual(Object.keys(LOCAL_MODEL_ALLOWLIST),['H6008','H605C']);assert.equal(assertLocalModel('H6008').hardwareReleased,false);assert.throws(()=>assertLocalModel('H9999'),e=>e.code==='GOVEE_MODEL_UNSUPPORTED')});
 await test('Cloud-only-Govee-Modelle und Funktionen sind klar ausgeschlossen',async()=>{assert.ok(CLOUD_ONLY_EXCLUDED.some(item=>item.includes('OpenAPI')));const item=compatibilityFor('govee');assert.equal(item.level,'experimental');assert.equal(item.localOnly,true);assert.ok(item.limitations.some(value=>value.includes('Keine Govee OpenAPI')))});
 await test('Realer Govee-Modus bleibt bis Hardwarefreigabe gesperrt',async()=>{const adapter=new GoveeAdapter({mode:'real'});await assert.rejects(()=>adapter.discover(),e=>e.code==='GOVEE_HARDWARE_NOT_RELEASED')});
-console.log(`\n${passed}/170 Tests bestanden`);if(passed!==170)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
+await test('Matter Shelly und Zigbee bleiben ohne Testmatrix unsupported',async()=>{const plan=publicPilotPlan();for(const id of ['matter','shelly','zigbee']){assert.equal(plan.pilots[id].supported,false);assert.equal(plan.pilots[id].hardwareMatrix[0].status,'not-tested')}assert.equal(validatePilotPlan(plan),true)});
+await test('Integrationsreihenfolge bleibt Hue Govee Matter Shelly Zigbee',async()=>{assert.deepEqual(publicPilotPlan().order,['hue','govee','matter','shelly','zigbee'])});
+await test('Jeder Pilot kapselt Herstellerdaten in eigenem Adapter',async()=>{for(const item of Object.values(publicPilotPlan().pilots))assert.match(item.adapterBoundary,/Adapter$/)});
+await test('Jeder Pilot besitzt Sicherheits- und Abbruchkriterien',async()=>{for(const item of Object.values(publicPilotPlan().pilots)){assert.ok(item.security.length>=3);assert.ok(item.abort.length>=3)}});
+console.log(`\n${passed}/174 Tests bestanden`);if(passed!==174)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});

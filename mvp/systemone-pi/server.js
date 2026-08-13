@@ -38,6 +38,7 @@ const { CameraModule } = require('./lib/camera-module');
 const { PiHoleModule } = require('./lib/pihole-module');
 const { createYouDoModules } = require('./lib/module-registry');
 const { GoveeAdapter, LOCAL_MODEL_ALLOWLIST, CLOUD_ONLY_EXCLUDED } = require('./lib/govee');
+const { publicPilotPlan } = require('./lib/integration-pilots');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -278,6 +279,7 @@ const requestHandler = async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/pihole') return json(res,200,pihole.publicStatus());
     if (req.method === 'GET' && url.pathname === '/api/modules') return json(res,200,{modules:modules.list(),coreIndependent:true,cloudRequired:false,aiRequired:false});
     if (req.method === 'GET' && url.pathname === '/api/integrations/govee') return json(res,200,{mode:govee.mode,hardwareReleased:false,models:LOCAL_MODEL_ALLOWLIST,cloudOnlyExcluded:CLOUD_ONLY_EXCLUDED,devices:registry.list().filter(device=>device.integration==='govee').map(publicDevice)});
+    if (req.method === 'GET' && url.pathname === '/api/integration-pilots') return json(res,200,publicPilotPlan());
     if (req.method === 'POST' && url.pathname === '/api/integrations/govee/simulate') {const body=await readBody(req),device=govee.create({model:body.model,name:body.name,roomId:body.roomId});registry.upsert(device);persist();return json(res,201,publicDevice(device));}
     if (req.method === 'POST' && url.pathname === '/api/pihole/refresh') return json(res,200,await pihole.refresh());
     if (req.method === 'POST' && url.pathname === '/api/pihole/blocking') {const body=await readBody(req);return json(res,200,await pihole.setBlocking(body.enabled));}

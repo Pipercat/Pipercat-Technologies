@@ -169,6 +169,7 @@ Das verbindliche Betriebs- und Einwilligungsmodell für Diagnose, Updates, künf
 - `GET /api/modules` (dynamisch aktive lokale Modulmanifeste)
 - `GET /api/integrations/govee` (hardware-sicherer lokaler Pilotstatus)
 - `POST /api/integrations/govee/simulate`
+- `GET /api/integration-pilots` (getrennte, noch nicht freigegebene Hardwarepfade)
 - `GET /api/setup`
 - `GET /api/onboarding`
 - `POST /api/onboarding/advance`
