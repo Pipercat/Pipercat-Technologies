@@ -32,7 +32,7 @@ const {evaluatePilotReport,publicPilotSummary}=require('../lib/pilot-report');
 const {API_VERSION,normalizeApiPath,responseEnvelope,validateEnvelope,publicContract}=require('../lib/api-contract');
 const {acceptsHtml,shouldServeAppShell,staticResponseHeaders}=require('../lib/http-routing');
 const {createGracefulShutdown}=require('../lib/process-lifecycle');
-const {validateRuntimeConfig}=require('../lib/runtime-config');
+const {EX_CONFIG,validateRuntimeConfig,formatConfigError}=require('../lib/runtime-config');
 const demo=[{id:'hue-1',hueId:'1',integration:'hue',type:'light',name:'Testlicht',online:true,on:false,brightness:50}];
 async function adapter(fault=''){process.env.HUE_MODE='simulation';process.env.HUE_SIM_FAULT=fault;const dir=fs.mkdtempSync(path.join(os.tmpdir(),'systemone-test-'));const storage=new LocalStorage(dir);return {hue:new HueAdapter({storage,demoDevices:demo,diagnostics:new Diagnostics()}),dir}}
 (async()=>{let passed=0;async function test(name,fn){try{await fn();passed++;console.log(`✓ ${name}`)}catch(e){console.error(`✗ ${name}: ${e.message}`);process.exitCode=1}}
@@ -259,4 +259,7 @@ await test('Unvollständiges TLS fällt niemals still auf HTTP zurück',async()=
 await test('Vollständige TLS-Konfiguration wird explizit aktiviert',async()=>{const config=validateRuntimeConfig({TLS_KEY_PATH:'/key',TLS_CERT_PATH:'/cert'},{existsSync:()=>true});assert.equal(config.tlsEnabled,true);assert.equal(config.tlsKeyPath,'/key');assert.equal(config.tlsCertPath,'/cert')});
 await test('Hardwareziele bleiben lokal und freigabegesteuert',async()=>{assert.throws(()=>validateRuntimeConfig({HUE_BRIDGE_IP:'8.8.8.8'}),e=>e.code==='HUE_INVALID_BRIDGE_IP');assert.throws(()=>validateRuntimeConfig({GOVEE_MODE:'real'}),e=>e.code==='GOVEE_HARDWARE_NOT_RELEASED');assert.doesNotThrow(()=>validateRuntimeConfig({HUE_MODE:'real',HUE_BRIDGE_IP:'192.168.1.2'}))});
 await test('Pi-Anleitung dokumentiert Fail-closed-Start',async()=>{const doc=fs.readFileSync(path.join(__dirname,'../docs/pi-service-installation.md'),'utf8');for(const term of ['fail-closed','true`/`false','unvollständige TLS-Konfiguration','niemals still auf HTTP'])assert.ok(doc.includes(term))});
-console.log(`\n${passed}/223 Tests bestanden`);if(passed!==223)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
+await test('Konfigurationsfehler verwenden standardisierten EX_CONFIG-Exitcode',async()=>{assert.equal(EX_CONFIG,78);let error;try{validateRuntimeConfig({PORT:'x'})}catch(caught){error=caught}assert.match(formatConfigError(error),/CONFIG_PORT_INVALID/);assert.doesNotMatch(formatConfigError(error),/undefined/)});
+await test('systemd verhindert Neustartschleifen bei Konfigurationsfehlern',async()=>{const unit=fs.readFileSync(path.join(__dirname,'../deploy/systemd/systemone-pi.service'),'utf8'),pkg=require('../package.json');assert.match(unit,/ExecStartPre=.*check-runtime-config\.js/);assert.match(unit,/RestartPreventExitStatus=78/);assert.equal(pkg.scripts['config:check'],'node scripts/check-runtime-config.js')});
+await test('Pi-Anleitung erklärt Korrektur statt automatischer Restart-Schleife',async()=>{const doc=fs.readFileSync(path.join(__dirname,'../docs/pi-service-installation.md'),'utf8');for(const term of ['ExecStartPre','EX_CONFIG','Exitcode 78','RestartPreventExitStatus=78','systemctl restart systemone-pi'])assert.ok(doc.includes(term))});
+console.log(`\n${passed}/226 Tests bestanden`);if(passed!==226)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});

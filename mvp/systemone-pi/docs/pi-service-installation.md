@@ -37,7 +37,7 @@ Nach Restart müssen Räume, Geräte und Automationen erhalten sein. Das Log dar
 
 Die Unit nutzt einen dynamischen, nicht anmeldbaren Benutzer, eine private StateDirectory mit Modus 0700, UMask 0077, leere Linux-Capability-Sets, schreibgeschütztes System/Home und begrenzte Netzwerk-Adressfamilien. Die Environment-Datei gehört root und hat Modus 0600. Kamera, Pi-hole, YouDo und reale Hue-Hardware bleiben standardmäßig deaktiviert.
 
-Der Start ist **fail-closed**: ungültiger Port, unbekannte Modi, andere Boolean-Werte als exakt `true`/`false`, nur ein gesetzter TLS-Pfad, fehlende TLS-/Update-Schlüsseldateien, öffentliche Hue-IP oder realer Govee-Modus stoppen den Prozess mit verständlichem Fehler. Insbesondere fällt eine unvollständige TLS-Konfiguration niemals still auf HTTP zurück.
+Der Start ist **fail-closed**: ungültiger Port, unbekannte Modi, andere Boolean-Werte als exakt `true`/`false`, nur ein gesetzter TLS-Pfad, fehlende TLS-/Update-Schlüsseldateien, öffentliche Hue-IP oder realer Govee-Modus stoppen den Prozess mit verständlichem Fehler. Insbesondere fällt eine unvollständige TLS-Konfiguration niemals still auf HTTP zurück. `ExecStartPre` führt denselben Check vor der Initialisierung aus. Konfigurationsfehler enden mit standardisiertem `EX_CONFIG`-Exitcode 78; `RestartPreventExitStatus=78` verhindert eine systemd-Neustartschleife. Nach der Korrektur wird der Dienst bewusst mit `systemctl restart systemone-pi` erneut gestartet.
 
 USB-/NAS-Backupziele benötigen eine separat geplante systemd-Mount-Unit und einen ausdrücklich freigegebenen Pfad in `SYSTEMONE_EXPORT_ROOTS`. Keine Lockerung von `ProtectSystem`, Capabilities oder Dateirechten ohne dokumentierten Risikonachweis.
 

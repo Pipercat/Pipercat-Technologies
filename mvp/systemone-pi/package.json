@@ -10,6 +10,7 @@
     "test": "node scripts/selftest.js",
     "verify": "npm run check && npm test",
     "release:audit": "node scripts/release-audit.js",
+    "config:check": "node scripts/check-runtime-config.js",
     "pilot:dry-run": "node scripts/pilot-dry-run.js"
     ,"tls:provision": "node scripts/tls-identity.js provision"
     ,"tls:renew": "node scripts/tls-identity.js renew"

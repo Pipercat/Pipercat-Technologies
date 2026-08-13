@@ -5,6 +5,7 @@ const {isPrivateIpv4}=require('./hue');
 
 const BOOLEAN_KEYS=['CAMERA_MODULE_ENABLED','PIHOLE_MODULE_ENABLED','YOUDO_CALENDAR_ENABLED','YOUDO_TASKS_ENABLED'];
 const MODE_KEYS=['HUE_MODE','CAMERA_MODE','PIHOLE_MODE','GOVEE_MODE'];
+const EX_CONFIG=78;
 
 function configError(code,message,field){return Object.assign(new Error(message),{code,details:{field}})}
 
@@ -21,4 +22,6 @@ function validateRuntimeConfig(env=process.env,{existsSync=fs.existsSync}={}){
   return{port,tlsEnabled:Boolean(tlsKey&&tlsCert),tlsKeyPath:tlsKey||null,tlsCertPath:tlsCert||null,updatePublicKeyPath:env.UPDATE_PUBLIC_KEY_PATH||null};
 }
 
-module.exports={BOOLEAN_KEYS,MODE_KEYS,validateRuntimeConfig};
+function formatConfigError(error){return `SystemONE-Konfigurationsfehler [${error?.code||'CONFIG_INVALID'}]: ${error?.message||'Unbekannter Konfigurationsfehler.'}`}
+
+module.exports={BOOLEAN_KEYS,MODE_KEYS,EX_CONFIG,validateRuntimeConfig,formatConfigError};

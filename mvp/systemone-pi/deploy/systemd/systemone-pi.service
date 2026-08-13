@@ -10,8 +10,10 @@ DynamicUser=yes
 WorkingDirectory=/opt/systemone-pi
 EnvironmentFile=-/etc/systemone-pi/systemone.env
 Environment=SYSTEMONE_DATA_DIR=/var/lib/systemone-pi
+ExecStartPre=/usr/bin/node /opt/systemone-pi/scripts/check-runtime-config.js
 ExecStart=/usr/bin/node /opt/systemone-pi/server.js
 Restart=on-failure
+RestartPreventExitStatus=78
 RestartSec=5s
 KillSignal=SIGTERM
 TimeoutStopSec=15s

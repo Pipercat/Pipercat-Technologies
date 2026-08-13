@@ -42,9 +42,10 @@ const { publicPilotPlan } = require('./lib/integration-pilots');
 const { API_VERSION, normalizeApiPath, responseEnvelope, publicContract } = require('./lib/api-contract');
 const { shouldServeAppShell, staticResponseHeaders } = require('./lib/http-routing');
 const { createGracefulShutdown } = require('./lib/process-lifecycle');
-const { validateRuntimeConfig } = require('./lib/runtime-config');
+const { EX_CONFIG, validateRuntimeConfig, formatConfigError } = require('./lib/runtime-config');
 
-const runtimeConfig=validateRuntimeConfig(process.env);
+let runtimeConfig;
+try{runtimeConfig=validateRuntimeConfig(process.env)}catch(error){console.error(formatConfigError(error));process.exit(EX_CONFIG)}
 const PORT = runtimeConfig.port;
 const PUBLIC_DIR = path.join(__dirname, 'web');
 const DOCS_DIR = path.join(__dirname, 'docs');
