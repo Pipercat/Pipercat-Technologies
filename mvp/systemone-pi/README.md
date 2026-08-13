@@ -150,6 +150,9 @@ HUE_SIM_FAULT=command npm start
 - `GET /api/health`
 - `GET /api/diagnostics`
 - `GET /api/setup`
+- `GET /api/onboarding`
+- `POST /api/onboarding/advance`
+- `POST /api/onboarding/reset`
 - `GET /api/state`
 - `GET /api/profiles`
 - `GET /api/compatibility`
@@ -238,6 +241,9 @@ HUE_SIM_FAULT=command npm start
 53. ungeprüfte Hersteller bleiben aus dem Pilot
 54. Release-Audit erkennt offene Pflicht-Gates
 55. Release-Audit lehnt unvollständige Evidence ab
+56. Legacy-Onboarding wird versioniert migriert
+57. Onboarding erzwingt geordnete Übergänge
+58. Onboarding wird nach Neustart wiederaufgenommen
 
 ## Release-Audit
 

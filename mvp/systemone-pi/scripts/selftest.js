@@ -8,6 +8,7 @@ const {THEMES,validateTheme}=require('../lib/themes');
 const {availableIntegrations,validateOnboardingRequest}=require('../lib/device-onboarding');
 const {LEVELS,publicCompatibilityCatalog,compatibilityFor}=require('../lib/compatibility');
 const {evaluateReleaseEvidence}=require('../lib/release-gates');
+const {STEPS,migrateOnboardingState,advanceOnboarding,resumeOnboarding,resetOnboarding}=require('../lib/onboarding-state');
 const demo=[{id:'hue-1',hueId:'1',integration:'hue',type:'light',name:'Testlicht',online:true,on:false,brightness:50}];
 async function adapter(fault=''){process.env.HUE_MODE='simulation';process.env.HUE_SIM_FAULT=fault;const dir=fs.mkdtempSync(path.join(os.tmpdir(),'systemone-test-'));const storage=new LocalStorage(dir);return {hue:new HueAdapter({storage,demoDevices:demo,diagnostics:new Diagnostics()}),dir}}
 (async()=>{let passed=0;async function test(name,fn){try{await fn();passed++;console.log(`✓ ${name}`)}catch(e){console.error(`✗ ${name}: ${e.message}`);process.exitCode=1}}
@@ -66,4 +67,7 @@ await test('Hue bleibt bis Hardwarefreigabe experimentell',async()=>{const hue=c
 await test('Ungeprüfte Hersteller bleiben aus dem Pilot',async()=>{const catalog=publicCompatibilityCatalog();for(const id of ['govee','matter','shelly','zigbee','ikea']){const item=catalog.entries.find(entry=>entry.integration===id);assert.equal(item.level,'unsupported');assert.equal(item.pilot,false)}});
 await test('Release-Audit erkennt offene Pflicht-Gates',async()=>{const report=evaluateReleaseEvidence(require('../release-evidence.json'));assert.equal(report.ready,false);assert.equal(report.total,8);assert.ok(report.passed<report.total)});
 await test('Release-Audit akzeptiert nur vollständige Evidence',async()=>{assert.throws(()=>evaluateReleaseEvidence({schemaVersion:1,gates:{}}),e=>e.code==='RELEASE_EVIDENCE_INVALID')});
-console.log(`\n${passed}/55 Tests bestanden`);if(passed!==55)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
+await test('Legacy-Onboarding wird versioniert migriert',async()=>{const open=migrateOnboardingState({completed:false}),done=migrateOnboardingState({completed:true});assert.equal(open.currentStep,'welcome');assert.equal(done.currentStep,'complete');assert.deepEqual(done.completedSteps,STEPS.slice(0,-1))});
+await test('Onboarding erzwingt geordnete Übergänge',async()=>{const initial=resetOnboarding();assert.throws(()=>advanceOnboarding(initial,'theme'),e=>e.code==='ONBOARDING_STATE_INVALID');const next=advanceOnboarding(initial,'language');assert.equal(next.currentStep,'language');assert.deepEqual(next.completedSteps,['welcome'])});
+await test('Onboarding wird nach Neustart wiederaufgenommen',async()=>{let flow=resetOnboarding();flow=advanceOnboarding(flow,'language');flow=advanceOnboarding(flow,'theme');const restored=resumeOnboarding(JSON.parse(JSON.stringify(flow)));assert.equal(restored.currentStep,'theme');assert.deepEqual(restored.completedSteps,['welcome','language'])});
+console.log(`\n${passed}/58 Tests bestanden`);if(passed!==58)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
