@@ -155,6 +155,8 @@ HUE_SIM_FAULT=command npm start
 
 - `GET /api/health`
 - `GET /api/diagnostics`
+- `GET /api/diagnostics/export/preview` (Kategorien, Ausschlüsse und Grenzen vor Export)
+- `GET /api/diagnostics/export` (versioniertes, redigiertes Supportpaket; max. 256 KiB)
 - `GET /api/setup`
 - `GET /api/onboarding`
 - `POST /api/onboarding/advance`

@@ -33,6 +33,7 @@ const { AuditLog } = require('./lib/audit-log');
 const { certificateStatus } = require('./lib/tls-identity');
 const { validateUpdatePackage, approveUpdate } = require('./lib/update-package');
 const { createSlotState, stageUpdate, activateStaged, reportBootHealth, recoverInterruptedBoot } = require('./lib/update-slots');
+const { createDiagnosticPackage, previewDiagnosticPackage } = require('./lib/diagnostic-export');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -263,6 +264,8 @@ const requestHandler = async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, diagnostics.health(state, hue));
     if (req.method === 'GET' && url.pathname === '/api/diagnostics') return json(res, 200, { ...diagnostics.report(state, hue), reconnect: reconnect.snapshot() });
+    if (req.method === 'GET' && url.pathname === '/api/diagnostics/export/preview') {if(state.onboarding.adminPaired)requireSession(req,'system:read');const pkg=createDiagnosticPackage(diagnostics.report(state,hue),{includeEvents:url.searchParams.get('events')!=='0'});return json(res,200,previewDiagnosticPackage(pkg));}
+    if (req.method === 'GET' && url.pathname === '/api/diagnostics/export') {if(state.onboarding.adminPaired)requireSession(req,'system:read');return json(res,200,createDiagnosticPackage(diagnostics.report(state,hue),{includeEvents:url.searchParams.get('events')!=='0'}));}
     if (req.method === 'GET' && url.pathname === '/api/admin/audit') { requireSession(req, 'users:manage'); return json(res, 200, auditLog.list()); }
     if (req.method === 'GET' && url.pathname === '/api/setup') return json(res, 200, setupStatus());
     if (req.method === 'GET' && url.pathname === '/api/onboarding') return json(res, 200, state.onboarding.flow);
