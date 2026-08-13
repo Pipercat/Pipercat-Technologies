@@ -10,6 +10,10 @@
     "test": "node scripts/selftest.js",
     "verify": "npm run check && npm test",
     "release:audit": "node scripts/release-audit.js"
+    ,"tls:provision": "node scripts/tls-identity.js provision"
+    ,"tls:renew": "node scripts/tls-identity.js renew"
+    ,"tls:revoke": "node scripts/tls-identity.js revoke"
+    ,"tls:status": "node scripts/tls-identity.js status"
   },
   "dependencies": {
     "qrcode": "1.5.4"

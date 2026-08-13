@@ -1,4 +1,5 @@
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -28,6 +29,7 @@ const { DEFAULT_LOCALE, validateLocale, localeCatalog, messagesFor } = require('
 const { normalizedDeviceEvent } = require('./lib/device-events');
 const { securityHeaders, validateHost, validateWriteRequest, RateLimiter } = require('./lib/web-security');
 const { AuditLog } = require('./lib/audit-log');
+const { certificateStatus } = require('./lib/tls-identity');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -234,7 +236,7 @@ function setupStatus() {
   return { completed: steps.every(step => step.done), currentStep: steps.find(step => !step.done)?.id || 'complete', steps, hardwareSafe: hue.mode !== 'real' };
 }
 
-const server = http.createServer(async (req, res) => {
+const requestHandler = async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const clientKey=String(req.socket.remoteAddress||'local'),mutating=!['GET','HEAD','OPTIONS'].includes(req.method);let auditActor=null;if(mutating)res.once('finish',()=>{auditLog.record({method:req.method,path:url.pathname,status:res.statusCode,outcome:res.statusCode<400?'success':'failure',actor:auditActor,error:res._auditError});state.auditLog=auditLog.list();persist()});validateHost(req);validateWriteRequest(req);
@@ -266,6 +268,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/device-onboarding/discover') return json(res, 200, { integration: url.searchParams.get('integration') || 'simulation', scannedAt: new Date().toISOString(), candidates: discoverCandidates(url.searchParams.get('integration') || 'simulation', registry.list()) });
     if (req.method === 'POST' && url.pathname === '/api/device-onboarding/complete') { const startedAt = Date.now(), input = validateOnboardingRequest(await readBody(req), state.rooms, registry.list()); const device = simulation.create({ ...input, id: input.candidateId || undefined, serialNumber: input.candidateId ? `DISC-${input.candidateId.toUpperCase()}` : undefined }); registry.upsert(device); persist(); return json(res, 201, { device: publicDevice(device), test: { success: true, latencyMs: Date.now() - startedAt, checks: [{ id: 'identity', ok: Boolean(device.id) }, { id: 'availability', ok: device.online }, { id: 'capabilities', ok: Object.keys(device.capabilities).length > 0 }], message: 'Identität, Erreichbarkeit und Funktionen wurden lokal geprüft.' } }); }
     if (req.method === 'GET' && url.pathname === '/api/system') return json(res, 200, state.system);
+    if (req.method === 'GET' && url.pathname === '/api/system/identity') return json(res, 200, tlsEnabled ? certificateStatus(path.dirname(tlsKeyPath)) : { provisioned:false,revoked:false,keyLocalOnly:true,transport:'http-development' });
     if (req.method === 'GET' && url.pathname === '/api/themes') return json(res, 200, THEMES);
     if (req.method === 'GET' && url.pathname === '/api/dashboard') return json(res, 200, state.dashboard);
     if (req.method === 'PATCH' && url.pathname === '/api/dashboard') { state.dashboard = validateDashboard(await readBody(req)); persist(); return json(res, 200, state.dashboard); }
@@ -288,7 +291,7 @@ const server = http.createServer(async (req, res) => {
     if (automationMatch && req.method === 'PATCH') { const body = await readBody(req); const item = automationEngine.setEnabled(automationMatch[1], body.enabled); if (!item) return json(res, 404, { code: 'AUTOMATION_NOT_FOUND', message: 'Automation nicht gefunden.' }); persist(); return json(res, 200, item); }
     if (automationMatch && req.method === 'DELETE') { if (!automationEngine.remove(automationMatch[1])) return json(res, 404, { code: 'AUTOMATION_NOT_FOUND', message: 'Automation nicht gefunden.' }); persist(); return json(res, 200, { deleted: true }); }
     if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/session') return json(res, 201, await createPairingSession());
-    if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/complete') { const result = completePairing(await readBody(req)); return json(res, 200, { adminPaired: true, session: result.local.session }, { 'Set-Cookie': `systemone_session=${encodeURIComponent(result.local.token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200` }); }
+    if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/complete') { const result = completePairing(await readBody(req)); return json(res, 200, { adminPaired: true, session: result.local.session }, { 'Set-Cookie': `systemone_session=${encodeURIComponent(result.local.token)}; HttpOnly; SameSite=Strict${tlsEnabled?'; Secure':''}; Path=/; Max-Age=43200` }); }
     if (req.method === 'DELETE' && url.pathname === '/api/onboarding/pair-admin/session') { const revoked = Boolean(state.onboarding.pairingSession); state.onboarding.pairingSession = null; return json(res, 200, { revoked }); }
     if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, requireSession(req, 'system:read'));
     if (req.method === 'GET' && url.pathname === '/api/admin/sessions') { requireSession(req, 'users:manage'); return json(res, 200, localSessions.list()); }
@@ -296,7 +299,7 @@ const server = http.createServer(async (req, res) => {
     const adminSessionMatch = url.pathname.match(/^\/api\/admin\/sessions\/([^/]+)$/);
     if (adminSessionMatch && req.method === 'DELETE') { requireSession(req, 'users:manage'); return json(res, 200, { revoked: localSessions.revoke(adminSessionMatch[1]) }); }
     if (req.method === 'DELETE' && url.pathname === '/api/admin/session') { const current = requireSession(req, 'system:read'); return json(res, 200, { revoked: localSessions.revoke(current.id) }, { 'Set-Cookie': 'systemone_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' }); }
-    if (req.method === 'POST' && url.pathname === '/api/display/session') { const token = bearerToken(req), session = localSessions.authenticate(token, 'dashboard:read'); return json(res, 200, session, { 'Set-Cookie': `systemone_display=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200` }); }
+    if (req.method === 'POST' && url.pathname === '/api/display/session') { const token = bearerToken(req), session = localSessions.authenticate(token, 'dashboard:read'); return json(res, 200, session, { 'Set-Cookie': `systemone_display=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict${tlsEnabled?'; Secure':''}; Path=/; Max-Age=43200` }); }
     if (req.method === 'GET' && url.pathname === '/api/display') { requireSession(req, 'dashboard:read', 'systemone_display'); return json(res, 200, displayState(state, registry.list({ publicOnly: true }))); }
     if (req.method === 'GET' && url.pathname === '/api/integrations/hue/discover') return json(res, 200, await discoverHue());
     if (req.method === 'POST' && url.pathname === '/api/integrations/hue/sync') { reconnect.beginAttempt(); updateReconnectState(); return json(res, 200, await syncHue()); }
@@ -348,10 +351,13 @@ const server = http.createServer(async (req, res) => {
     const authCodes = ['SESSION_INVALID','SESSION_REVOKED','SESSION_EXPIRED'], forbiddenCodes = ['SESSION_FORBIDDEN','HOST_FORBIDDEN','CSRF_ORIGIN_INVALID','CSRF_TOKEN_MISSING'],rateCodes=['RATE_LIMITED'];
     return json(res, authCodes.includes(error.code) ? 401 : forbiddenCodes.includes(error.code) ? 403 : rateCodes.includes(error.code)?429:conflictCodes.includes(error.code) ? 409 : 400, { code: error.code || 'INTERNAL_ERROR', message: error.message || 'Ungültige Anfrage.' });
   }
-});
+};
+
+const tlsKeyPath=process.env.TLS_KEY_PATH,tlsCertPath=process.env.TLS_CERT_PATH,tlsEnabled=Boolean(tlsKeyPath&&tlsCertPath);let server;
+if(tlsEnabled){const identity=certificateStatus(path.dirname(tlsKeyPath));if(identity.provisioned&&identity.revoked)throw Object.assign(new Error('Widerrufene TLS-Geräteidentität darf nicht starten.'),{code:'TLS_IDENTITY_REVOKED'});server=https.createServer({key:fs.readFileSync(tlsKeyPath),cert:fs.readFileSync(tlsCertPath),minVersion:'TLSv1.2'},requestHandler)}else server=http.createServer(requestHandler);
 
 server.listen(PORT, '0.0.0.0', async () => {
-  console.log(`SystemONE Pi MVP v0.4.0 läuft auf http://localhost:${PORT} · Hue-Modus: ${hue.mode}`);
+  console.log(`SystemONE Pi MVP v0.4.0 läuft auf ${tlsEnabled?'https':'http'}://localhost:${PORT} · Hue-Modus: ${hue.mode}`);
   if (hue.mode !== 'real') diagnostics.record('HUE_REAL_MODE_DISABLED', 'Sicherer Simulationsmodus aktiv: keine private Hue Bridge wird angesprochen.');
   scheduler.start();
   await discoverHue(); if (state.integrations.hue.paired) await syncHue();
