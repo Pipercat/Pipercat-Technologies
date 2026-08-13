@@ -64,7 +64,7 @@ class Diagnostics {
       recentErrors:this.events.filter(e=>e.severity==='error').slice(0,10), recentWarnings:this.events.filter(e=>e.severity==='warning').slice(0,10) };
   }
   report(state,hue) {
-    return { generatedAt:new Date().toISOString(), system:{name:state.system?.name,version:state.system?.version,mode:state.system?.mode},
+    return { generatedAt:new Date().toISOString(), system:{name:state.system?.name,version:state.system?.version,mode:state.system?.mode,build:state.system?.build},
       runtime:{node:process.version,platform:process.platform,arch:process.arch,uptimeSeconds:Math.round(process.uptime())},
       hue:{mode:hue.mode,hasBridge:Boolean(hue.bridge),paired:Boolean(state.integrations?.hue?.paired),bridgeId:hue.bridge?.id||null},
       counts:{rooms:state.rooms?.length||0,devices:state.devices?.length||0}, health:this.health(state,hue), events:this.events };

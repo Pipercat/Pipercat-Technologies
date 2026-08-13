@@ -43,6 +43,7 @@ const { API_VERSION, normalizeApiPath, responseEnvelope, publicContract } = requ
 const { shouldServeAppShell, staticResponseHeaders } = require('./lib/http-routing');
 const { createGracefulShutdown } = require('./lib/process-lifecycle');
 const { EX_CONFIG, validateRuntimeConfig, formatConfigError } = require('./lib/runtime-config');
+const { loadBuildIdentity, publicBuildIdentity } = require('./lib/build-identity');
 
 let runtimeConfig;
 try{runtimeConfig=validateRuntimeConfig(process.env)}catch(error){console.error(formatConfigError(error));process.exit(EX_CONFIG)}
@@ -50,6 +51,8 @@ const PORT = runtimeConfig.port;
 const PUBLIC_DIR = path.join(__dirname, 'web');
 const DOCS_DIR = path.join(__dirname, 'docs');
 const DATA_DIR = process.env.SYSTEMONE_DATA_DIR || path.join(__dirname, 'data');
+let buildIdentity;
+try{buildIdentity=loadBuildIdentity(__dirname)}catch(error){console.error(`[${error.code||'BUILD_IDENTITY_INVALID'}] ${error.message}`);process.exit(EX_CONFIG)}
 const diagnostics = new Diagnostics();
 const updatePublicKey=runtimeConfig.updatePublicKeyPath?fs.readFileSync(runtimeConfig.updatePublicKeyPath,'utf8'):process.env.UPDATE_PUBLIC_KEY?.replace(/\\n/g,'\n')||null;
 const storage = new LocalStorage(DATA_DIR, { onError: error => diagnostics.record(error.code, error.message, error.details) });
@@ -63,7 +66,7 @@ let lastBackupRestoreTest=null;
 const DEVICE_PROFILES = publicProfiles();
 
 const initialState = {
-  system: { name: 'SystemONE Pi', version: '0.4.0', mode: 'local', online: true },
+  system: { name: 'SystemONE Pi', version: buildIdentity.version, mode: 'local', online: true, build: publicBuildIdentity(buildIdentity) },
   onboarding: { completed: false, adminPaired: false, selectedTheme: 'Clear', locale: DEFAULT_LOCALE, pairingSession: null, flow: null },
   home: { name: 'Mein Zuhause', location: null },
   integrations: { hue: { discovered: false, paired: false, bridge: null, lastSync: null, syncError: null, mode: 'simulation', reconnect: reconnect.snapshot() } },
@@ -80,7 +83,7 @@ const initialState = {
 const persisted = storage.loadState(initialState);
 const state = {
   ...initialState, ...persisted,
-  system: { ...initialState.system, ...(persisted.system || {}), version: '0.4.0' },
+  system: { ...initialState.system, ...(persisted.system || {}), version: buildIdentity.version, build: publicBuildIdentity(buildIdentity) },
   onboarding: { ...initialState.onboarding, ...(persisted.onboarding || {}), pairingSession: null },
   home: { ...initialState.home, ...(persisted.home || {}), location: persisted.home?.location || null },
   integrations: { ...initialState.integrations, ...(persisted.integrations || {}), hue: { ...initialState.integrations.hue, ...(persisted.integrations?.hue || {}), reconnect: reconnect.snapshot() } },
@@ -282,7 +285,7 @@ const requestHandler = async (req, res) => {
       req.on('close', () => { clearInterval(heartbeat); deviceEventClients.delete(res); });
       return;
     }
-    if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, diagnostics.health(state, hue));
+    if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, {...diagnostics.health(state, hue),build:publicBuildIdentity(buildIdentity)});
     if (req.method === 'GET' && url.pathname === '/api/contract') return json(res,200,publicContract());
     if (req.method === 'GET' && url.pathname === '/api/diagnostics') return json(res, 200, { ...diagnostics.report(state, hue), reconnect: reconnect.snapshot() });
     if (req.method === 'GET' && url.pathname === '/api/diagnostics/export/preview') {if(state.onboarding.adminPaired)requireSession(req,'system:read');const pkg=createDiagnosticPackage(diagnostics.report(state,hue),{includeEvents:url.searchParams.get('events')!=='0'});return json(res,200,previewDiagnosticPackage(pkg));}
@@ -412,7 +415,7 @@ const tlsKeyPath=runtimeConfig.tlsKeyPath,tlsCertPath=runtimeConfig.tlsCertPath,
 if(tlsEnabled){const identity=certificateStatus(path.dirname(tlsKeyPath));if(identity.provisioned&&identity.revoked)throw Object.assign(new Error('Widerrufene TLS-Geräteidentität darf nicht starten.'),{code:'TLS_IDENTITY_REVOKED'});server=https.createServer({key:fs.readFileSync(tlsKeyPath),cert:fs.readFileSync(tlsCertPath),minVersion:'TLSv1.2'},requestHandler)}else server=http.createServer(requestHandler);
 
 server.listen(PORT, '0.0.0.0', async () => {
-  console.log(`SystemONE Pi MVP v0.4.0 läuft auf ${tlsEnabled?'https':'http'}://localhost:${PORT} · Hue-Modus: ${hue.mode}`);
+  console.log(`SystemONE Pi MVP v${buildIdentity.version} (${buildIdentity.channel}${buildIdentity.sourceCommit?` · ${buildIdentity.sourceCommit.slice(0,12)}`:''}) läuft auf ${tlsEnabled?'https':'http'}://localhost:${PORT} · Hue-Modus: ${hue.mode}`);
   if (hue.mode !== 'real') diagnostics.record('HUE_REAL_MODE_DISABLED', 'Sicherer Simulationsmodus aktiv: keine private Hue Bridge wird angesprochen.');
   scheduler.start();
   if(!backupManager.list().length)runBackupCycle();
