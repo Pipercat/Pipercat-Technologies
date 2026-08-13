@@ -9,4 +9,6 @@ Stand: 13.08.2026 · Bearbeitet von: Pipercat Technologies
 - Funktionale Updates werden nach erfolgreicher Prüfung nicht automatisch installiert. Ein authentifizierter Owner/Administrator muss eine einmalige lokale Freigabe erzeugen.
 - Online- und Offline-Transport verwenden dasselbe Paket und dieselbe Verifikation; der Transport selbst ist nicht vertrauenswürdig.
 - Der Payload ist das mit `npm run release:build` erzeugte, inventarisierte Release-Bundle. Archivprüfsumme, eingebettetes Dateimanifest und `sourceCommit` verbinden die Signatur mit dem tatsächlich installierten Slot-Inhalt.
+- Nach gültiger Ed25519-Signatur wird der Payload als begrenztes Gzip/Tar geöffnet. Header-Prüfsummen, reguläre Dateitypen, sichere Pfade, eindeutige Einträge, Abschlussblöcke, fehlende Folgedaten und vollständige Hash-/Modus-/Größeninventur werden geprüft. Beliebiger signierter Text, Zusatzdateien oder Archive mit versteckten Folgedaten werden abgewiesen.
+- Version und Ziel des eingebetteten Release-Manifests müssen exakt dem signierten Update-Manifest entsprechen. Die lokale Vorschau zeigt vor der Freigabe Quell-Commit und Anzahl vollständig geprüfter Dateien.
 - Atomare Installation und Rollback folgen dem dokumentierten A/B-Zustandsautomaten; der reale Ziel-Pi-Nachweis bleibt ein separates Freigabegate.
