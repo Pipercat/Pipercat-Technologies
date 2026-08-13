@@ -153,6 +153,8 @@ HUE_SIM_FAULT=command npm start
 
 ## API v0.4.0
 
+Das verbindliche Betriebs- und Einwilligungsmodell für Diagnose, Updates, künftige Fernwartung und A/B-Rollback steht in [`docs/remote-maintenance-policy.md`](docs/remote-maintenance-policy.md). Fernwartung bleibt im MVP standardmäßig deaktiviert.
+
 - `GET /api/health`
 - `GET /api/diagnostics`
 - `GET /api/diagnostics/export/preview` (Kategorien, Ausschlüsse und Grenzen vor Export)
