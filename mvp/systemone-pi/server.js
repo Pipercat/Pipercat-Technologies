@@ -169,10 +169,12 @@ function serveStatic(req, res) {
   const filePath = path.join(PUBLIC_DIR, normalized);
   if (!filePath.startsWith(PUBLIC_DIR) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) return false;
   const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript', '.svg': 'image/svg+xml','.webmanifest':'application/manifest+json' };
-  res.writeHead(200, { ...securityHeaders(), 'Content-Type': `${types[path.extname(filePath)] || 'application/octet-stream'}; charset=utf-8` });
+  const size=fs.statSync(filePath).size;
+  res.writeHead(200, { ...securityHeaders(), 'Content-Type': `${types[path.extname(filePath)] || 'application/octet-stream'}; charset=utf-8`, 'Content-Length':size });
+  if(req.method==='HEAD'){res.end();return true}
   fs.createReadStream(filePath).pipe(res); return true;
 }
-function servePublicDoc(req,res){const name=req.url.split('?')[0].replace(/^\/docs\//,'');if(!/^[a-z0-9-]+\.md$/.test(name))return false;const file=path.join(DOCS_DIR,name);if(!file.startsWith(DOCS_DIR)||!fs.existsSync(file))return false;res.writeHead(200,{...securityHeaders(),'Content-Type':'text/markdown; charset=utf-8','Content-Disposition':'inline','Cache-Control':'no-store'});fs.createReadStream(file).pipe(res);return true}
+function servePublicDoc(req,res){const name=req.url.split('?')[0].replace(/^\/docs\//,'');if(!/^[a-z0-9-]+\.md$/.test(name))return false;const file=path.join(DOCS_DIR,name);if(!file.startsWith(DOCS_DIR)||!fs.existsSync(file))return false;res.writeHead(200,{...securityHeaders(),'Content-Type':'text/markdown; charset=utf-8','Content-Disposition':'inline','Cache-Control':'no-store','Content-Length':fs.statSync(file).size});if(req.method==='HEAD'){res.end();return true}fs.createReadStream(file).pipe(res);return true}
 function markHueOffline(error) {
   registry.list().filter(device => device.integration === 'hue').forEach(device => registry.patch(device.id, { online: false, availability: 'offline', diagnostics: { lastError: error.message } }));
   state.integrations.hue.lastSync = new Date().toISOString();
@@ -388,9 +390,9 @@ const requestHandler = async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/api/devices') return json(res, 200, registry.list({ publicOnly: true }));
     if (req.method === 'GET' && url.pathname === '/api/rooms') return json(res, 200, state.rooms);
-    if (req.method === 'GET' && url.pathname.startsWith('/docs/') && servePublicDoc(req,res))return;
-    if (req.method === 'GET' && !url.pathname.startsWith('/api/') && serveStatic(req, res)) return;
-    if (req.method === 'GET' && !url.pathname.startsWith('/api/')) { req.url = '/index.html'; if (serveStatic(req, res)) return; }
+    if (['GET','HEAD'].includes(req.method) && url.pathname.startsWith('/docs/') && servePublicDoc(req,res))return;
+    if (['GET','HEAD'].includes(req.method) && !url.pathname.startsWith('/api/') && serveStatic(req, res)) return;
+    if (['GET','HEAD'].includes(req.method) && !url.pathname.startsWith('/api/')) { req.url = '/index.html'; if (serveStatic(req, res)) return; }
     return json(res, 404, { code: 'NOT_FOUND', message: 'Route nicht gefunden.' });
   } catch (error) {
     res._auditError={code:error.code||'INTERNAL_ERROR',message:error.message};

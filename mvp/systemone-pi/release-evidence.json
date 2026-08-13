@@ -3,7 +3,7 @@
   "release": "systemone-pi-external-beta",
   "updatedAt": "2026-08-13",
   "gates": {
-    "automated": { "required": true, "passed": true, "evidence": ["npm run verify: Syntaxprüfung und 204/204 Selftests am 2026-08-13"] },
+    "automated": { "required": true, "passed": true, "evidence": ["npm run verify: Syntaxprüfung und 205/205 Selftests am 2026-08-13"] },
     "app": { "required": true, "passed": true, "evidence": ["Installierbare local-first PWA, API/Eventvertrag v1 und responsive App-Zustände automatisiert geprüft"] },
     "security": { "required": true, "passed": false, "evidence": ["Lokale Rollen, TLS, CSRF, Rate-Limit und Redaction implementiert; externes Security-Review offen"] },
     "hardware": { "required": true, "passed": false, "evidence": ["Hue-/Govee-Hardwarematrix und physischer Ziel-Pi-Lauf offen"] },
