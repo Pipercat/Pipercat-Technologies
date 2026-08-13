@@ -166,6 +166,7 @@ Das verbindliche Betriebs- und Einwilligungsmodell für Diagnose, Updates, künf
 - `GET /api/pihole` (optionales, Core-unabhängiges Modul)
 - `POST /api/pihole/refresh`
 - `POST /api/pihole/blocking`
+- `GET /api/modules` (dynamisch aktive lokale Modulmanifeste)
 - `GET /api/setup`
 - `GET /api/onboarding`
 - `POST /api/onboarding/advance`
