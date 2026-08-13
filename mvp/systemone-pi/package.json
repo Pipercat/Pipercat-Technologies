@@ -14,6 +14,7 @@
     "secrets:check": "node scripts/secret-preflight.js",
     "secrets:history": "node scripts/secret-history-preflight.js",
     "release:build": "node scripts/build-release-bundle.js",
+    "release:verify": "npm run check && npm test && node scripts/verify-release-bundle.js",
     "pilot:dry-run": "node scripts/pilot-dry-run.js"
     ,"tls:provision": "node scripts/tls-identity.js provision"
     ,"tls:renew": "node scripts/tls-identity.js renew"
