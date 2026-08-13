@@ -6,6 +6,7 @@ const {AutomationScheduler}=require('../lib/scheduler');
 const {validateLocation,calculateSolarEvents}=require('../lib/solar');
 const {THEMES,validateTheme}=require('../lib/themes');
 const {availableIntegrations,validateOnboardingRequest}=require('../lib/device-onboarding');
+const {LEVELS,publicCompatibilityCatalog,compatibilityFor}=require('../lib/compatibility');
 const demo=[{id:'hue-1',hueId:'1',integration:'hue',type:'light',name:'Testlicht',online:true,on:false,brightness:50}];
 async function adapter(fault=''){process.env.HUE_MODE='simulation';process.env.HUE_SIM_FAULT=fault;const dir=fs.mkdtempSync(path.join(os.tmpdir(),'systemone-test-'));const storage=new LocalStorage(dir);return {hue:new HueAdapter({storage,demoDevices:demo,diagnostics:new Diagnostics()}),dir}}
 (async()=>{let passed=0;async function test(name,fn){try{await fn();passed++;console.log(`✓ ${name}`)}catch(e){console.error(`✗ ${name}: ${e.message}`);process.exitCode=1}}
@@ -59,4 +60,7 @@ await test('Thermostat-Simulation setzt Heizzustand',async()=>{const sim=new Sim
 await test('Schalter-Simulation liefert Leistungswert',async()=>{const sim=new SimulationAdapter(),d=sim.create({profile:'switch',name:'Dose'}),patch=await sim.applyCapabilities(d,{power:true});assert.equal(patch.powerConsumption,42.5)});
 await test('Rollladen-Aktionen normalisieren Position',async()=>{const sim=new SimulationAdapter(),d=sim.create({profile:'blind',name:'Rollo'});assert.deepEqual(await sim.applyAction(d,'open'),{position:100});assert.deepEqual(await sim.applyAction(d,'close'),{position:0});assert.deepEqual(await sim.applyAction(d,'stop'),{})});
 await test('Simulationsgerät enthält lokale Geräteinformationen',async()=>{const d=new SimulationAdapter().create({profile:'sensor',name:'Sensor'});assert.equal(d.information.firmwareVersion,'sim-1.0');assert.ok(d.information.serialNumber.startsWith('SIM-'));assert.equal(d.compatibility,'experimental')});
-console.log(`\n${passed}/50 Tests bestanden`);if(passed!==50)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
+await test('Kompatibilitätsklassen sind vollständig definiert',async()=>{assert.deepEqual(Object.keys(LEVELS),['certified','compatible','experimental','unsupported'])});
+await test('Hue bleibt bis Hardwarefreigabe experimentell',async()=>{const hue=compatibilityFor('hue');assert.equal(hue.level,'experimental');assert.equal(hue.pilot,true);assert.ok(hue.limitations.some(item=>item.includes('Physische Bridge')))});
+await test('Ungeprüfte Hersteller bleiben aus dem Pilot',async()=>{const catalog=publicCompatibilityCatalog();for(const id of ['govee','matter','shelly','zigbee','ikea']){const item=catalog.entries.find(entry=>entry.integration===id);assert.equal(item.level,'unsupported');assert.equal(item.pilot,false)}});
+console.log(`\n${passed}/53 Tests bestanden`);if(passed!==53)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});

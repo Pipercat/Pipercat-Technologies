@@ -24,6 +24,7 @@ Pipercat Technologies entwickelt modulare Smart-Home-, Homeserver-, Netzwerk- un
 - [Unternehmenskonzept](docs/company/overview.md)
 - [Produktübersicht](docs/products/index.md)
 - [SystemONE-Pi-MVP-Scope](docs/products/systemone-pi-mvp-scope.md)
+- [Geräte- und Herstellermatrix](docs/products/systemone-compatibility-matrix.md)
 - [Architektur](docs/architecture/overview.md)
 - [Pilotarchitektur-Entscheidung](docs/architecture/adr-0001-systemone-pi-pilot.md)
 - [Sicherheit und Datenschutz](docs/security/baseline.md)

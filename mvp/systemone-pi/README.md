@@ -151,6 +151,7 @@ HUE_SIM_FAULT=command npm start
 - `GET /api/setup`
 - `GET /api/state`
 - `GET /api/profiles`
+- `GET /api/compatibility`
 - `GET /api/rooms`
 - `POST /api/rooms`
 - `GET /api/devices`
@@ -231,6 +232,9 @@ HUE_SIM_FAULT=command npm start
 48. Schalter-Leistungswert
 49. Rollladen-Aktionen
 50. lokale Geräteinformationen
+51. vollständige Kompatibilitätsklassen
+52. Hue bleibt bis zur Hardwarefreigabe experimentell
+53. ungeprüfte Hersteller bleiben aus dem Pilot
 
 ## Noch nicht produktionsreif
 
