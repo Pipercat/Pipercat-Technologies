@@ -7,6 +7,7 @@ class LocalStorage {
     this.onError = onError;
     this.stateFile = path.join(baseDir, 'state.json');
     this.secretsFile = path.join(baseDir, 'secrets.json');
+    this.sessionsFile = path.join(baseDir, 'sessions.json');
     fs.mkdirSync(baseDir, { recursive: true, mode: 0o700 });
   }
 
@@ -71,6 +72,9 @@ class LocalStorage {
   saveSecrets(secrets) {
     this.writeJson(this.secretsFile, secrets, 0o600);
   }
+
+  loadSessions() { return this.readJson(this.sessionsFile, []); }
+  saveSessions(sessions) { this.writeJson(this.sessionsFile, sessions, 0o600); }
 }
 
 module.exports = { LocalStorage };

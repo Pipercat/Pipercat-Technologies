@@ -109,6 +109,9 @@ HUE_MODE=real npm start
 - echter lokal erzeugter QR-Code für Admin-Pairing
 - 5 Minuten gültiger Token plus 6-stelliger Bestätigungscode
 - lokaler QR-Scan-Simulator, damit der Pairing-Flow ohne mobile App vollständig testbar ist
+- kryptografische lokale Owner-Session als `HttpOnly`-/`SameSite=Strict`-Cookie nach erfolgreichem Pairing
+- zentrale Rollenrechte für Eigentümer, Administrator, Mitglied, Gast und Wanddisplay
+- Schutz aller schreibenden APIs nach dem ersten Admin-Pairing sowie widerrufbare, persistent gehashte Sessions
 - geführter Setup-Assistent mit sechs Prüfschritten
 - 10 hardwarefreie Selftests
 
@@ -249,6 +252,8 @@ HUE_SIM_FAULT=command npm start
 58. Onboarding wird nach Neustart wiederaufgenommen
 59. Locale-Auswahl validiert und normalisiert
 60. i18n-Katalog besitzt deutschen Fallback
+61–66. Lebensdauer, Parallelblock, Einmalverwendung, Fehlversuche und Secret-Redaktion des Admin-Pairings
+67–72. Rollenmatrix, Secret-freie Sessions, Ablauf, Widerruf, Rechteprüfung und Neustart-Persistenz
 
 ## Release-Audit
 
@@ -260,7 +265,7 @@ Der Befehl schlägt bis zur echten Pilotfreigabe bewusst fehl und listet die off
 
 ## Noch nicht produktionsreif
 
-Vor Kundeneinsatz fehlen weiterhin TLS/Reverse-Proxy-Härtung, echtes Berechtigungsmodell, Geräteidentitäten/Zertifikate, signierte Updates, Rate-Limits, CSRF-/Session-Schutz, vollständige Backup-Migrationen und ein Security-Review. Der echte Hue-Hardwaretest bleibt bewusst für einen späteren Pilot zurückgestellt.
+Vor Kundeneinsatz fehlen weiterhin TLS/Reverse-Proxy-Härtung, Geräteidentitäten/Zertifikate, signierte Updates, umfassende API-Rate-Limits, zusätzliche Origin-/CSRF-Prüfungen, vollständige Backup-Migrationen und ein Security-Review. Lokale Rollen, ablaufende Sessions, Pairing-Rate-Limit und `SameSite=Strict`-Cookies sind als MVP-Basis vorhanden. Der echte Hue-Hardwaretest bleibt bewusst für einen späteren Pilot zurückgestellt.
 
 ## Danach
 

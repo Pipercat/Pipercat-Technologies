@@ -21,6 +21,7 @@ const { availableIntegrations, validateOnboardingRequest } = require('./lib/devi
 const { publicCompatibilityCatalog } = require('./lib/compatibility');
 const { migrateOnboardingState, advanceOnboarding, resetOnboarding } = require('./lib/onboarding-state');
 const { createSession, assertSessionCanStart, verifySession, publicSession } = require('./lib/admin-pairing');
+const { LocalSessionStore } = require('./lib/local-sessions');
 const { DEFAULT_LOCALE, validateLocale, localeCatalog, messagesFor } = require('./lib/i18n');
 
 const PORT = Number(process.env.PORT || 4170);
@@ -80,6 +81,7 @@ async function applyDeviceCapabilities(deviceId, capabilityPatch) {
 
 const validPersistedAutomations = state.automations.flatMap(value => { try { return [validateAutomation(value, registry)]; } catch (error) { diagnostics.record('AUTOMATION_INVALID', 'Gespeicherte Automation wurde übersprungen.', { cause: error.message }); return []; } });
 const automationEngine = new AutomationEngine({ registry, automations: validPersistedAutomations, executeAction: action => applyDeviceCapabilities(action.deviceId, action.capabilities) });
+const localSessions = new LocalSessionStore({ initial: storage.loadSessions(), onChange: sessions => storage.saveSessions(sessions) });
 const scheduler = new AutomationScheduler({ engine: automationEngine, solarProvider: async date => state.home.location ? calculateSolarEvents(date, state.home.location) : null });
 state.automations = automationEngine.list();
 
@@ -98,10 +100,12 @@ function persist() {
   safeState.onboarding.pairingSession = null;
   storage.saveState(safeState);
 }
-function json(res, status, data) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+function json(res, status, data, headers = {}) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers });
   res.end(JSON.stringify({ success: status < 400, data: status < 400 ? data : null, error: status >= 400 ? data : null }));
 }
+function sessionToken(req) { const cookie = String(req.headers.cookie || '').split(';').map(item => item.trim()).find(item => item.startsWith('systemone_session=')); return cookie ? decodeURIComponent(cookie.split('=').slice(1).join('=')) : String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''); }
+function requireSession(req, permission = 'system:write') { return localSessions.authenticate(sessionToken(req), permission); }
 function publicState() { const onboarding = { ...state.onboarding, pairingSession: publicSession(state.onboarding.pairingSession) }; return { ...state, onboarding, devices: registry.list({ publicOnly: true }), automations: automationEngine.list() }; }
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -166,7 +170,7 @@ async function createPairingSession() {
 function completePairing(body) {
   const session = state.onboarding.pairingSession;
   verifySession(session, body);
-  state.onboarding.adminPaired = true; state.onboarding.pairingSession = null; persist(); return { adminPaired: true };
+  state.onboarding.adminPaired = true; state.onboarding.pairingSession = null; persist(); const local = localSessions.create('owner'); return { adminPaired: true, local };
 }
 function createSimulatedDevice(body) {
   const profile = DEVICE_PROFILES[body.profile || body.type] ? (body.profile || body.type) : null;
@@ -208,6 +212,8 @@ function setupStatus() {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const pairingBootstrap = req.method === 'POST' && ['/api/onboarding/pair-admin/session','/api/onboarding/pair-admin/complete'].includes(url.pathname);
+    if (state.onboarding.adminPaired && req.method !== 'GET' && !pairingBootstrap) requireSession(req, 'system:write');
     if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, diagnostics.health(state, hue));
     if (req.method === 'GET' && url.pathname === '/api/diagnostics') return json(res, 200, { ...diagnostics.report(state, hue), reconnect: reconnect.snapshot() });
     if (req.method === 'GET' && url.pathname === '/api/setup') return json(res, 200, setupStatus());
@@ -238,8 +244,11 @@ const server = http.createServer(async (req, res) => {
     if (automationMatch && req.method === 'PATCH') { const body = await readBody(req); const item = automationEngine.setEnabled(automationMatch[1], body.enabled); if (!item) return json(res, 404, { code: 'AUTOMATION_NOT_FOUND', message: 'Automation nicht gefunden.' }); persist(); return json(res, 200, item); }
     if (automationMatch && req.method === 'DELETE') { if (!automationEngine.remove(automationMatch[1])) return json(res, 404, { code: 'AUTOMATION_NOT_FOUND', message: 'Automation nicht gefunden.' }); persist(); return json(res, 200, { deleted: true }); }
     if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/session') return json(res, 201, await createPairingSession());
-    if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/complete') return json(res, 200, completePairing(await readBody(req)));
+    if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/complete') { const result = completePairing(await readBody(req)); return json(res, 200, { adminPaired: true, session: result.local.session }, { 'Set-Cookie': `systemone_session=${encodeURIComponent(result.local.token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200` }); }
     if (req.method === 'DELETE' && url.pathname === '/api/onboarding/pair-admin/session') { const revoked = Boolean(state.onboarding.pairingSession); state.onboarding.pairingSession = null; return json(res, 200, { revoked }); }
+    if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, requireSession(req, 'system:read'));
+    if (req.method === 'GET' && url.pathname === '/api/admin/sessions') { requireSession(req, 'users:manage'); return json(res, 200, localSessions.list()); }
+    if (req.method === 'DELETE' && url.pathname === '/api/admin/session') { const current = requireSession(req, 'system:read'); return json(res, 200, { revoked: localSessions.revoke(current.id) }, { 'Set-Cookie': 'systemone_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' }); }
     if (req.method === 'GET' && url.pathname === '/api/integrations/hue/discover') return json(res, 200, await discoverHue());
     if (req.method === 'POST' && url.pathname === '/api/integrations/hue/sync') { reconnect.beginAttempt(); updateReconnectState(); return json(res, 200, await syncHue()); }
     if (req.method === 'POST' && url.pathname === '/api/integrations/hue/reconnect') { reconnect.beginAttempt(); updateReconnectState(); await discoverHue(); if (state.integrations.hue.paired) await syncHue(); return json(res, 200, state.integrations.hue); }
@@ -286,7 +295,8 @@ const server = http.createServer(async (req, res) => {
   } catch (error) {
     diagnostics.record(error.code || 'INTERNAL_ERROR', error.message || 'Unbekannter Fehler.', error.details || {});
     const conflictCodes = ['HUE_LINK_BUTTON_REQUIRED','PAIRING_SESSION_ACTIVE','PAIRING_SESSION_EXPIRED','PAIRING_INVALID','PAIRING_RATE_LIMITED','HUE_DEVICE_OFFLINE','DEVICE_OFFLINE'];
-    return json(res, conflictCodes.includes(error.code) ? 409 : 400, { code: error.code || 'INTERNAL_ERROR', message: error.message || 'Ungültige Anfrage.' });
+    const authCodes = ['SESSION_INVALID','SESSION_REVOKED','SESSION_EXPIRED'], forbiddenCodes = ['SESSION_FORBIDDEN'];
+    return json(res, authCodes.includes(error.code) ? 401 : forbiddenCodes.includes(error.code) ? 403 : conflictCodes.includes(error.code) ? 409 : 400, { code: error.code || 'INTERNAL_ERROR', message: error.message || 'Ungültige Anfrage.' });
   }
 });
 
