@@ -23,7 +23,9 @@ Pipercat Technologies entwickelt modulare Smart-Home-, Homeserver-, Netzwerk- un
 
 - [Unternehmenskonzept](docs/company/overview.md)
 - [Produktübersicht](docs/products/index.md)
+- [SystemONE-Pi-MVP-Scope](docs/products/systemone-pi-mvp-scope.md)
 - [Architektur](docs/architecture/overview.md)
+- [Pilotarchitektur-Entscheidung](docs/architecture/adr-0001-systemone-pi-pilot.md)
 - [Sicherheit und Datenschutz](docs/security/baseline.md)
 - [Preismodell](docs/pricing/pricing.md)
 - [Roadmap](ROADMAP.md)
@@ -34,6 +36,6 @@ Pipercat Technologies entwickelt modulare Smart-Home-, Homeserver-, Netzwerk- un
 
 ## Status
 
-Version 0.1 – professionelle Erststruktur für Unternehmens-, Produkt- und Entwicklungsdokumentation.
+Der SystemONE-Pi-Core v0.4.0 wird auf dem Branch `mvp/systemone-pi-v0.1` als geschlossener, lokaler Pilot entwickelt. Die [Pilotarchitektur](docs/architecture/adr-0001-systemone-pi-pilot.md) ist verbindlich festgelegt; vor einem Pilotbetrieb fehlen insbesondere Zugriffsschutz, TLS/Geräteidentität, signierte Updates, getestetes Rollback und die echte Hue-Hardwarefreigabe.
 
 > Rechtlicher Hinweis: Dieses Repository enthält unverbindliche Arbeitsentwürfe und keine Rechts- oder Steuerberatung. Rechtliche Dokumente müssen vor Verwendung fachkundig geprüft werden.
