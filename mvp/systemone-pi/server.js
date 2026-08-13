@@ -26,6 +26,8 @@ const { displayState } = require('./lib/display-state');
 const { defaultDashboard, validateDashboard, migrateDashboard } = require('./lib/dashboard-layout');
 const { DEFAULT_LOCALE, validateLocale, localeCatalog, messagesFor } = require('./lib/i18n');
 const { normalizedDeviceEvent } = require('./lib/device-events');
+const { securityHeaders, validateHost, validateWriteRequest, RateLimiter } = require('./lib/web-security');
+const { AuditLog } = require('./lib/audit-log');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -46,6 +48,7 @@ const initialState = {
   automations: [],
   automationHistory: [],
   schedulerExecuted: {},
+  auditLog: [],
   dashboard: defaultDashboard()
 };
 
@@ -61,6 +64,7 @@ const state = {
   automations: Array.isArray(persisted.automations) ? persisted.automations : [],
   automationHistory: Array.isArray(persisted.automationHistory) ? persisted.automationHistory.slice(0,100) : [],
   schedulerExecuted: persisted.schedulerExecuted && typeof persisted.schedulerExecuted === 'object' ? persisted.schedulerExecuted : {},
+  auditLog: Array.isArray(persisted.auditLog) ? persisted.auditLog.slice(0,500) : [],
   dashboard: migrateDashboard(persisted.dashboard)
 };
 state.onboarding.flow = migrateOnboardingState(state.onboarding);
@@ -99,6 +103,8 @@ async function applyDeviceCapabilities(deviceId, capabilityPatch) {
 const validPersistedAutomations = state.automations.flatMap(value => { try { return [validateAutomation(value, registry)]; } catch (error) { diagnostics.record('AUTOMATION_INVALID', 'Gespeicherte Automation wurde übersprungen.', { cause: error.message }); return []; } });
 const automationEngine = new AutomationEngine({ registry, automations: validPersistedAutomations, history: state.automationHistory, executeAction: action => applyDeviceCapabilities(action.deviceId, action.capabilities) });
 const localSessions = new LocalSessionStore({ initial: storage.loadSessions(), onChange: sessions => storage.saveSessions(sessions) });
+const auditLog = new AuditLog({ initial: state.auditLog, limit: 500 });
+const writeLimiter=new RateLimiter({limit:120,windowMs:60000}),pairingLimiter=new RateLimiter({limit:10,windowMs:15*60000}),loginLimiter=new RateLimiter({limit:10,windowMs:15*60000});
 const scheduler = new AutomationScheduler({ engine: automationEngine, initialExecuted: state.schedulerExecuted, onExecutedChange: executed => { state.schedulerExecuted=executed;persist(); }, solarProvider: async date => state.home.location ? calculateSolarEvents(date, state.home.location) : null });
 state.automations = automationEngine.list();
 
@@ -119,13 +125,13 @@ function persist() {
   storage.saveState(safeState);
 }
 function json(res, status, data, headers = {}) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers });
+  res.writeHead(status, { ...securityHeaders(), 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers });
   res.end(JSON.stringify({ success: status < 400, data: status < 400 ? data : null, error: status >= 400 ? data : null }));
 }
 function sessionToken(req, cookieName = 'systemone_session') { const cookie = String(req.headers.cookie || '').split(';').map(item => item.trim()).find(item => item.startsWith(`${cookieName}=`)); return cookie ? decodeURIComponent(cookie.split('=').slice(1).join('=')) : String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''); }
 function bearerToken(req) { return String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''); }
 function requireSession(req, permission = 'system:write', cookieName = 'systemone_session') { return localSessions.authenticate(sessionToken(req, cookieName), permission); }
-function publicState() { const onboarding = { ...state.onboarding, pairingSession: publicSession(state.onboarding.pairingSession) }; return { ...state, onboarding, devices: registry.list({ publicOnly: true }), automations: automationEngine.list() }; }
+function publicState() { const {auditLog:_,...publicData}=state,onboarding = { ...state.onboarding, pairingSession: publicSession(state.onboarding.pairingSession) }; return { ...publicData, onboarding, devices: registry.list({ publicOnly: true }), automations: automationEngine.list() }; }
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -140,7 +146,7 @@ function serveStatic(req, res) {
   const filePath = path.join(PUBLIC_DIR, normalized);
   if (!filePath.startsWith(PUBLIC_DIR) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) return false;
   const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript', '.svg': 'image/svg+xml' };
-  res.writeHead(200, { 'Content-Type': `${types[path.extname(filePath)] || 'application/octet-stream'}; charset=utf-8` });
+  res.writeHead(200, { ...securityHeaders(), 'Content-Type': `${types[path.extname(filePath)] || 'application/octet-stream'}; charset=utf-8` });
   fs.createReadStream(filePath).pipe(res); return true;
 }
 function markHueOffline(error) {
@@ -231,10 +237,12 @@ function setupStatus() {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const clientKey=String(req.socket.remoteAddress||'local'),mutating=!['GET','HEAD','OPTIONS'].includes(req.method);let auditActor=null;if(mutating)res.once('finish',()=>{auditLog.record({method:req.method,path:url.pathname,status:res.statusCode,outcome:res.statusCode<400?'success':'failure',actor:auditActor,error:res._auditError});state.auditLog=auditLog.list();persist()});validateHost(req);validateWriteRequest(req);
     const pairingBootstrap = req.method === 'POST' && ['/api/onboarding/pair-admin/session','/api/onboarding/pair-admin/complete','/api/display/session'].includes(url.pathname);
-    if (state.onboarding.adminPaired && req.method !== 'GET' && !pairingBootstrap) requireSession(req, 'system:write');
+    if(mutating){writeLimiter.consume(clientKey);if(url.pathname==='/api/onboarding/pair-admin/session')pairingLimiter.consume(clientKey);if(['/api/onboarding/pair-admin/complete','/api/display/session'].includes(url.pathname))loginLimiter.consume(clientKey)}
+    if (state.onboarding.adminPaired && mutating && !pairingBootstrap) auditActor=requireSession(req, 'system:write');
     if (req.method === 'GET' && url.pathname === '/api/events/devices') {
-      res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Content-Type-Options': 'nosniff' });
+      res.writeHead(200, { ...securityHeaders(), 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive' });
       res.write(`retry: 5000\nevent: devices.resync\ndata: ${JSON.stringify(normalizedDeviceEvent('devices.resync', {}, ++deviceEventSequence))}\n\n`);
       deviceEventClients.add(res);
       const heartbeat = setInterval(() => res.write(': keepalive\n\n'), 20000);
@@ -243,6 +251,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, diagnostics.health(state, hue));
     if (req.method === 'GET' && url.pathname === '/api/diagnostics') return json(res, 200, { ...diagnostics.report(state, hue), reconnect: reconnect.snapshot() });
+    if (req.method === 'GET' && url.pathname === '/api/admin/audit') { requireSession(req, 'users:manage'); return json(res, 200, auditLog.list()); }
     if (req.method === 'GET' && url.pathname === '/api/setup') return json(res, 200, setupStatus());
     if (req.method === 'GET' && url.pathname === '/api/onboarding') return json(res, 200, state.onboarding.flow);
     if (req.method === 'POST' && url.pathname === '/api/onboarding/advance') { const body = await readBody(req); state.onboarding.flow = advanceOnboarding(state.onboarding.flow, body.targetStep); state.onboarding.completed = state.onboarding.flow.currentStep === 'complete'; persist(); return json(res, 200, state.onboarding.flow); }
@@ -333,10 +342,11 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && !url.pathname.startsWith('/api/')) { req.url = '/index.html'; if (serveStatic(req, res)) return; }
     return json(res, 404, { code: 'NOT_FOUND', message: 'Route nicht gefunden.' });
   } catch (error) {
+    res._auditError={code:error.code||'INTERNAL_ERROR',message:error.message};
     diagnostics.record(error.code || 'INTERNAL_ERROR', error.message || 'Unbekannter Fehler.', error.details || {});
     const conflictCodes = ['HUE_LINK_BUTTON_REQUIRED','PAIRING_SESSION_ACTIVE','PAIRING_SESSION_EXPIRED','PAIRING_INVALID','PAIRING_RATE_LIMITED','HUE_DEVICE_OFFLINE','DEVICE_OFFLINE'];
-    const authCodes = ['SESSION_INVALID','SESSION_REVOKED','SESSION_EXPIRED'], forbiddenCodes = ['SESSION_FORBIDDEN'];
-    return json(res, authCodes.includes(error.code) ? 401 : forbiddenCodes.includes(error.code) ? 403 : conflictCodes.includes(error.code) ? 409 : 400, { code: error.code || 'INTERNAL_ERROR', message: error.message || 'Ungültige Anfrage.' });
+    const authCodes = ['SESSION_INVALID','SESSION_REVOKED','SESSION_EXPIRED'], forbiddenCodes = ['SESSION_FORBIDDEN','HOST_FORBIDDEN','CSRF_ORIGIN_INVALID','CSRF_TOKEN_MISSING'],rateCodes=['RATE_LIMITED'];
+    return json(res, authCodes.includes(error.code) ? 401 : forbiddenCodes.includes(error.code) ? 403 : rateCodes.includes(error.code)?429:conflictCodes.includes(error.code) ? 409 : 400, { code: error.code || 'INTERNAL_ERROR', message: error.message || 'Ungültige Anfrage.' });
   }
 });
 

@@ -279,6 +279,7 @@ HUE_SIM_FAULT=command npm start
 108–110. Sonnenereignis-/Offsetvalidierung, lokaler Tageswechsel und cloudfreie UI-Erklärung
 111–114. Verlaufsrotation, partieller idempotenter Retry, Einmalwiederholung und Fehlerredaktion
 115–118. Neustart-Fälligkeit, doppelte DST-Minute, Scheduler-Erholung und lokale Zeitzonenanzeige
+119–123. Security-Header, lokale Host-Allowlist, CSRF-Schutz, Rate-Limit und begrenztes redigiertes Audit-Log
 
 ## Release-Audit
 
@@ -290,7 +291,7 @@ Der Befehl schlägt bis zur echten Pilotfreigabe bewusst fehl und listet die off
 
 ## Noch nicht produktionsreif
 
-Vor Kundeneinsatz fehlen weiterhin TLS/Reverse-Proxy-Härtung, Geräteidentitäten/Zertifikate, signierte Updates, umfassende API-Rate-Limits, zusätzliche Origin-/CSRF-Prüfungen, vollständige Backup-Migrationen und ein Security-Review. Lokale Rollen, ablaufende Sessions, Pairing-Rate-Limit und `SameSite=Strict`-Cookies sind als MVP-Basis vorhanden. Der echte Hue-Hardwaretest bleibt bewusst für einen späteren Pilot zurückgestellt.
+Vor Kundeneinsatz fehlen weiterhin TLS/Reverse-Proxy-Härtung, Geräteidentitäten/Zertifikate, signierte Updates, vollständige Backup-Migrationen und ein externes Security-Review. Lokale Rollen, ablaufende Sessions, Host-/Origin-/CSRF-Prüfung, gestaffelte Rate-Limits, Security-Header, begrenztes Audit-Log und `SameSite=Strict`-Cookies sind als MVP-Basis vorhanden. Der echte Hue-Hardwaretest bleibt bewusst für einen späteren Pilot zurückgestellt.
 
 Die aktuelle, bewusst konservative Hue-Freigabe sowie das wiederholbare Hardwareprotokoll stehen in [`docs/hue-support-matrix.md`](docs/hue-support-matrix.md). Kein reales Hue-Modell wird vor einem protokollierten Hardwarelauf als Certified ausgewiesen.
 
