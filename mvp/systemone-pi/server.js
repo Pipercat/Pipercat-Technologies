@@ -46,6 +46,7 @@ const { loadBuildIdentity, publicBuildIdentity } = require('./lib/build-identity
 const { BACKUP_JSON_BYTES, UPDATE_JSON_BYTES, readJsonBody } = require('./lib/request-body');
 const { createStartupErrorHandler } = require('./lib/server-startup');
 const { createTlsServer, formatTlsStartupError } = require('./lib/tls-server');
+const { RecoveryManager } = require('./lib/recovery-manager');
 
 let runtimeConfig;
 try{runtimeConfig=validateRuntimeConfig(process.env)}catch(error){console.error(formatConfigError(error));process.exit(EX_CONFIG)}
@@ -62,6 +63,7 @@ const reconnect = new ReconnectController({ diagnostics });
 const cameras=new CameraModule({dataDir:DATA_DIR,enabled:process.env.CAMERA_MODULE_ENABLED==='true',mode:process.env.CAMERA_MODE||'simulation'});
 const pihole=new PiHoleModule({enabled:process.env.PIHOLE_MODULE_ENABLED==='true',mode:process.env.PIHOLE_MODE||'simulation',baseUrl:process.env.PIHOLE_BASE_URL,token:process.env.PIHOLE_API_TOKEN});
 const modules=createYouDoModules();
+const recoveryManager=new RecoveryManager(DATA_DIR);
 const backupManager=new BackupManager({localDir:path.join(DATA_DIR,'backups'),retentionCount:process.env.BACKUP_RETENTION_COUNT||7,retentionDays:process.env.BACKUP_RETENTION_DAYS||30,allowedRoots:String(process.env.SYSTEMONE_EXPORT_ROOTS||'').split(path.delimiter).filter(Boolean)});
 let lastBackupRestoreTest=null;
 
@@ -225,7 +227,7 @@ async function createPairingSession() {
 function completePairing(body) {
   const session = state.onboarding.pairingSession;
   verifySession(session, body);
-  state.onboarding.adminPaired = true; state.onboarding.pairingSession = null; persist(); const local = localSessions.create('owner'); return { adminPaired: true, local };
+  state.onboarding.adminPaired = true; state.onboarding.pairingSession = null; persist(); const local = localSessions.create('owner'),recoveryCode=recoveryManager.provision(); return { adminPaired: true, local, recoveryCode };
 }
 function createSimulatedDevice(body) {
   const profile = DEVICE_PROFILES[body.profile || body.type] ? (body.profile || body.type) : null;
@@ -270,7 +272,7 @@ const requestHandler = async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     url.pathname=normalizeApiPath(url.pathname);
     const clientKey=String(req.socket.remoteAddress||'local'),mutating=!['GET','HEAD','OPTIONS'].includes(req.method);let auditActor=null;if(mutating)res.once('finish',()=>{auditLog.record({method:req.method,path:url.pathname,status:res.statusCode,outcome:res.statusCode<400?'success':'failure',actor:auditActor,error:res._auditError});state.auditLog=auditLog.list();persist()});validateHost(req);validateWriteRequest(req);
-    const authenticationExempt = req.method === 'POST' && ['/api/onboarding/pair-admin/complete','/api/display/session'].includes(url.pathname);
+    const authenticationExempt = req.method === 'POST' && ['/api/onboarding/pair-admin/complete','/api/display/session','/api/recovery/complete'].includes(url.pathname);
     if(mutating){writeLimiter.consume(clientKey);if(url.pathname==='/api/onboarding/pair-admin/session')pairingLimiter.consume(clientKey);if(['/api/onboarding/pair-admin/complete','/api/display/session'].includes(url.pathname))loginLimiter.consume(clientKey)}
     if(mutating&&!state.onboarding.adminPaired)assertBootstrapWrite({adminPaired:false,method:req.method,path:url.pathname,currentStep:state.onboarding.flow.currentStep});
     if (state.onboarding.adminPaired && mutating && !authenticationExempt) auditActor=requireSession(req, 'system:write');
@@ -346,9 +348,12 @@ const requestHandler = async (req, res) => {
     if (automationMatch && req.method === 'PATCH') { const body = await readBody(req); const item = automationEngine.setEnabled(automationMatch[1], body.enabled); if (!item) return json(res, 404, { code: 'AUTOMATION_NOT_FOUND', message: 'Automation nicht gefunden.' }); persist(); return json(res, 200, item); }
     if (automationMatch && req.method === 'DELETE') { if (!automationEngine.remove(automationMatch[1])) return json(res, 404, { code: 'AUTOMATION_NOT_FOUND', message: 'Automation nicht gefunden.' }); persist(); return json(res, 200, { deleted: true }); }
     if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/session') {if(state.onboarding.adminPaired)requireSession(req,'users:manage');return json(res, 201, await createPairingSession());}
-    if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/complete') { const result = completePairing(await readBody(req)); return json(res, 200, { adminPaired: true, session: result.local.session }, { 'Set-Cookie': `systemone_session=${encodeURIComponent(result.local.token)}; HttpOnly; SameSite=Strict${tlsEnabled?'; Secure':''}; Path=/; Max-Age=43200` }); }
+    if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/complete') { const result = completePairing(await readBody(req)); return json(res, 200, { adminPaired: true, session: result.local.session, recoveryCode:result.recoveryCode }, { 'Set-Cookie': `systemone_session=${encodeURIComponent(result.local.token)}; HttpOnly; SameSite=Strict${tlsEnabled?'; Secure':''}; Path=/; Max-Age=43200` }); }
     if (req.method === 'DELETE' && url.pathname === '/api/onboarding/pair-admin/session') {if(state.onboarding.adminPaired)requireSession(req,'users:manage');const revoked = Boolean(state.onboarding.pairingSession); state.onboarding.pairingSession = null; return json(res, 200, { revoked }); }
     if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, requireSession(req, 'system:read'));
+    if (req.method === 'GET' && url.pathname === '/api/recovery/status') return json(res,200,recoveryManager.status());
+    if (req.method === 'POST' && url.pathname === '/api/admin/recovery/provision') {requireSession(req,'users:manage');const recoveryCode=recoveryManager.provision();if(!recoveryCode)throw Object.assign(new Error('Recovery-Code ist bereits provisioniert und wird nicht erneut angezeigt.'),{code:'RECOVERY_ALREADY_PROVISIONED'});return json(res,201,{recoveryCode});}
+    if (req.method === 'POST' && url.pathname === '/api/recovery/complete') {const recovered=recoveryManager.recover((await readBody(req)).code);for(const session of localSessions.list())localSessions.revoke(session.id);const local=localSessions.create('owner');return json(res,200,{recovered:true,session:local.session,recoveryCode:recovered.recoveryCode},{'Set-Cookie':`systemone_session=${encodeURIComponent(local.token)}; HttpOnly; SameSite=Strict${tlsEnabled?'; Secure':''}; Path=/; Max-Age=43200`});}
     if (req.method === 'GET' && url.pathname === '/api/admin/sessions') { requireSession(req, 'users:manage'); return json(res, 200, localSessions.list()); }
     if (req.method === 'POST' && url.pathname === '/api/admin/display-sessions') { requireSession(req, 'users:manage'); const created = localSessions.create('display'); return json(res, 201, { session: created.session, launchUrl: `/display.html#token=${encodeURIComponent(created.token)}` }); }
     const adminSessionMatch = url.pathname.match(/^\/api\/admin\/sessions\/([^/]+)$/);
@@ -403,8 +408,8 @@ const requestHandler = async (req, res) => {
   } catch (error) {
     res._auditError={code:error.code||'INTERNAL_ERROR',message:error.message};
     diagnostics.record(error.code || 'INTERNAL_ERROR', error.message || 'Unbekannter Fehler.', error.details || {});
-    const conflictCodes = ['HUE_LINK_BUTTON_REQUIRED','PAIRING_SESSION_ACTIVE','PAIRING_SESSION_EXPIRED','PAIRING_INVALID','PAIRING_RATE_LIMITED','HUE_DEVICE_OFFLINE','DEVICE_OFFLINE'];
-    const authCodes = ['SESSION_INVALID','SESSION_REVOKED','SESSION_EXPIRED'], forbiddenCodes = ['SESSION_FORBIDDEN','ADMIN_PAIRING_REQUIRED','HOST_FORBIDDEN','CSRF_ORIGIN_INVALID','CSRF_TOKEN_MISSING'],rateCodes=['RATE_LIMITED'];
+    const conflictCodes = ['HUE_LINK_BUTTON_REQUIRED','PAIRING_SESSION_ACTIVE','PAIRING_SESSION_EXPIRED','PAIRING_INVALID','PAIRING_RATE_LIMITED','RECOVERY_ALREADY_PROVISIONED','HUE_DEVICE_OFFLINE','DEVICE_OFFLINE'];
+    const authCodes = ['SESSION_INVALID','SESSION_REVOKED','SESSION_EXPIRED'], forbiddenCodes = ['SESSION_FORBIDDEN','ADMIN_PAIRING_REQUIRED','RECOVERY_PHYSICAL_PRESENCE_REQUIRED','HOST_FORBIDDEN','CSRF_ORIGIN_INVALID','CSRF_TOKEN_MISSING'],rateCodes=['RATE_LIMITED','RECOVERY_RATE_LIMITED'];
     return json(res,error.code==='REQUEST_BODY_TOO_LARGE'?413:authCodes.includes(error.code) ? 401 : forbiddenCodes.includes(error.code) ? 403 : rateCodes.includes(error.code)?429:conflictCodes.includes(error.code) ? 409 : 400, { code: error.code || 'INTERNAL_ERROR', message: error.message || 'Ungültige Anfrage.' });
   }
 };

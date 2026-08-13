@@ -58,13 +58,13 @@ Restore:
 
 ## 6. Recovery bei verlorener Admin-Session
 
-Normales Vorgehen: neue lokale Pairing-Sitzung am SystemONE Pi starten und neu scannen. Für gesperrte Verwaltung verlangt Recovery **physischen Zugriff plus separaten, einmal verwendbaren Recovery-Code**. Nach fünf Fehlversuchen wird Recovery gesperrt.
+Normales Vorgehen mit noch gültiger Owner-Session: eine neue lokale Pairing-Sitzung starten und neu scannen. Für eine vollständig gesperrte Verwaltung verlangt Recovery **physischen Zugriff plus separaten, einmal verwendbaren Recovery-Code**. Nach fünf Fehlversuchen wird Recovery gesperrt.
 
-1. Direkt am Gerät Recovery-Modus starten; niemals über einen fremden Link.
-2. Den getrennt verwahrten Code eingeben.
-3. Neue Owner-Session koppeln.
-4. Alte Sessions unter „Mehr“ → Sicherheits-/Sessionverwaltung widerrufen.
-5. Recovery-Code ersetzen und wieder getrennt/offline verwahren.
+1. Direkt am Gerät ein Terminal öffnen und im installierten SystemONE-Verzeichnis `npm run recovery:open` ausführen. Das lokale Recoveryfenster gilt zehn Minuten; niemals über einen fremden Link oder Fernzugriff öffnen.
+2. Im selben Heimnetz „Mehr“ → „Owner-Recovery“ öffnen und den getrennt verwahrten Einmalcode eingeben. Ein Browserfeld `physicalPresence` wird nicht akzeptiert – ausschließlich die lokale Datei des CLI-Befehls beweist die physische Aktion.
+3. Nach erfolgreicher Prüfung widerruft SystemONE alle alten Sessions und setzt eine neue Owner-Session als `HttpOnly`-Cookie.
+4. Den neu angezeigten Recovery-Code sofort getrennt/offline verwahren; der alte Code ist endgültig verbraucht.
+5. Nach fünf Fehlversuchen bleibt Recovery bis zu einem bewusst dokumentierten physischen Werksreset gesperrt.
 
 Support darf nie nach Passwort, QR-Token, API-Key, Recovery-Code oder kompletter Backup-Passphrase fragen. Für Hilfe ausschließlich den vorschaupflichtigen, redigierten Diagnoseexport verwenden.
 

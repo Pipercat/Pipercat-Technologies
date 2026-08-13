@@ -16,6 +16,7 @@
     "release:build": "node scripts/build-release-bundle.js",
     "release:verify": "npm run check && npm test && node scripts/verify-release-bundle.js",
     "pilot:dry-run": "node scripts/pilot-dry-run.js"
+    ,"recovery:open": "node scripts/open-recovery.js"
     ,"tls:provision": "node scripts/tls-identity.js provision"
     ,"tls:renew": "node scripts/tls-identity.js renew"
     ,"tls:revoke": "node scripts/tls-identity.js revoke"

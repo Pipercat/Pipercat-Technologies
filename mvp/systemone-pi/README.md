@@ -200,6 +200,9 @@ Vor jedem externen Einsatz ist die [`Pilotkunden-Checkliste`](docs/pilot-custome
 - `POST /api/integrations/hue/reconnect`
 - `POST /api/onboarding/pair-admin/session`
 - `POST /api/onboarding/pair-admin/complete`
+- `GET /api/recovery/status` (nur Provisionierungs-/Fensterstatus, niemals Code oder Hash)
+- `POST /api/recovery/complete` (nur während lokal per `npm run recovery:open` geöffnetem Zehn-Minuten-Fenster)
+- `POST /api/admin/recovery/provision` (Owner-only; zeigt den Einmalcode exakt einmal)
 - `GET /api/backup` (vollständiger Export ausschließlich nach Admin-Pairing mit `system:read`-Session)
 - `POST /api/backup/restore`
 - `POST /api/backup/validate`
