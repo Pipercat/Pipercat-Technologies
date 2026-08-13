@@ -153,6 +153,9 @@ HUE_SIM_FAULT=command npm start
 - `GET /api/onboarding`
 - `POST /api/onboarding/advance`
 - `POST /api/onboarding/reset`
+- `GET /api/i18n`
+- `GET /api/i18n/messages`
+- `PATCH /api/settings/locale`
 - `GET /api/state`
 - `GET /api/profiles`
 - `GET /api/compatibility`
@@ -244,6 +247,8 @@ HUE_SIM_FAULT=command npm start
 56. Legacy-Onboarding wird versioniert migriert
 57. Onboarding erzwingt geordnete Übergänge
 58. Onboarding wird nach Neustart wiederaufgenommen
+59. Locale-Auswahl validiert und normalisiert
+60. i18n-Katalog besitzt deutschen Fallback
 
 ## Release-Audit
 

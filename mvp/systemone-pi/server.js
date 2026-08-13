@@ -20,6 +20,7 @@ const { THEMES, validateTheme } = require('./lib/themes');
 const { availableIntegrations, validateOnboardingRequest } = require('./lib/device-onboarding');
 const { publicCompatibilityCatalog } = require('./lib/compatibility');
 const { migrateOnboardingState, advanceOnboarding, resetOnboarding } = require('./lib/onboarding-state');
+const { DEFAULT_LOCALE, validateLocale, localeCatalog, messagesFor } = require('./lib/i18n');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -32,7 +33,7 @@ const DEVICE_PROFILES = publicProfiles();
 
 const initialState = {
   system: { name: 'SystemONE Pi', version: '0.4.0', mode: 'local', online: true },
-  onboarding: { completed: false, adminPaired: false, selectedTheme: 'Clear', pairingSession: null, flow: null },
+  onboarding: { completed: false, adminPaired: false, selectedTheme: 'Clear', locale: DEFAULT_LOCALE, pairingSession: null, flow: null },
   home: { name: 'Mein Zuhause', location: null },
   integrations: { hue: { discovered: false, paired: false, bridge: null, lastSync: null, syncError: null, mode: 'simulation', reconnect: reconnect.snapshot() } },
   rooms: [{ id: 'living', name: 'Wohnzimmer' }, { id: 'office', name: 'Büro' }, { id: 'bedroom', name: 'Schlafzimmer' }],
@@ -53,6 +54,7 @@ const state = {
 };
 state.onboarding.flow = migrateOnboardingState(state.onboarding);
 state.onboarding.completed = state.onboarding.flow.currentStep === 'complete';
+try { state.onboarding.locale = validateLocale(state.onboarding.locale || DEFAULT_LOCALE); } catch { state.onboarding.locale = DEFAULT_LOCALE; }
 
 const demoDevices = [
   { id: 'hue-1', hueId: '1', integration: 'hue', type: 'light', sourceName: 'Stehlampe', name: 'Stehlampe', roomId: 'living', online: true, on: true, brightness: 72 },
@@ -213,6 +215,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/onboarding') return json(res, 200, state.onboarding.flow);
     if (req.method === 'POST' && url.pathname === '/api/onboarding/advance') { const body = await readBody(req); state.onboarding.flow = advanceOnboarding(state.onboarding.flow, body.targetStep); state.onboarding.completed = state.onboarding.flow.currentStep === 'complete'; persist(); return json(res, 200, state.onboarding.flow); }
     if (req.method === 'POST' && url.pathname === '/api/onboarding/reset') { state.onboarding.flow = resetOnboarding(); state.onboarding.completed = false; persist(); return json(res, 200, state.onboarding.flow); }
+    if (req.method === 'GET' && url.pathname === '/api/i18n') return json(res, 200, { ...localeCatalog(), selectedLocale: state.onboarding.locale });
+    if (req.method === 'GET' && url.pathname === '/api/i18n/messages') return json(res, 200, messagesFor(url.searchParams.get('locale') || state.onboarding.locale));
+    if (req.method === 'PATCH' && url.pathname === '/api/settings/locale') { const body = await readBody(req); state.onboarding.locale = validateLocale(body.locale); persist(); return json(res, 200, { locale: state.onboarding.locale }); }
     if (req.method === 'GET' && url.pathname === '/api/profiles') return json(res, 200, DEVICE_PROFILES);
     if (req.method === 'GET' && url.pathname === '/api/compatibility') return json(res, 200, publicCompatibilityCatalog());
     if (req.method === 'GET' && url.pathname === '/api/device-onboarding/integrations') return json(res, 200, availableIntegrations(hue.mode));

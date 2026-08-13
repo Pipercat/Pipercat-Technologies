@@ -9,6 +9,7 @@ const {availableIntegrations,validateOnboardingRequest}=require('../lib/device-o
 const {LEVELS,publicCompatibilityCatalog,compatibilityFor}=require('../lib/compatibility');
 const {evaluateReleaseEvidence}=require('../lib/release-gates');
 const {STEPS,migrateOnboardingState,advanceOnboarding,resumeOnboarding,resetOnboarding}=require('../lib/onboarding-state');
+const {validateLocale,localeCatalog,messagesFor}=require('../lib/i18n');
 const demo=[{id:'hue-1',hueId:'1',integration:'hue',type:'light',name:'Testlicht',online:true,on:false,brightness:50}];
 async function adapter(fault=''){process.env.HUE_MODE='simulation';process.env.HUE_SIM_FAULT=fault;const dir=fs.mkdtempSync(path.join(os.tmpdir(),'systemone-test-'));const storage=new LocalStorage(dir);return {hue:new HueAdapter({storage,demoDevices:demo,diagnostics:new Diagnostics()}),dir}}
 (async()=>{let passed=0;async function test(name,fn){try{await fn();passed++;console.log(`✓ ${name}`)}catch(e){console.error(`✗ ${name}: ${e.message}`);process.exitCode=1}}
@@ -70,4 +71,6 @@ await test('Release-Audit akzeptiert nur vollständige Evidence',async()=>{asser
 await test('Legacy-Onboarding wird versioniert migriert',async()=>{const open=migrateOnboardingState({completed:false}),done=migrateOnboardingState({completed:true});assert.equal(open.currentStep,'welcome');assert.equal(done.currentStep,'complete');assert.deepEqual(done.completedSteps,STEPS.slice(0,-1))});
 await test('Onboarding erzwingt geordnete Übergänge',async()=>{const initial=resetOnboarding();assert.throws(()=>advanceOnboarding(initial,'theme'),e=>e.code==='ONBOARDING_STATE_INVALID');const next=advanceOnboarding(initial,'language');assert.equal(next.currentStep,'language');assert.deepEqual(next.completedSteps,['welcome'])});
 await test('Onboarding wird nach Neustart wiederaufgenommen',async()=>{let flow=resetOnboarding();flow=advanceOnboarding(flow,'language');flow=advanceOnboarding(flow,'theme');const restored=resumeOnboarding(JSON.parse(JSON.stringify(flow)));assert.equal(restored.currentStep,'theme');assert.deepEqual(restored.completedSteps,['welcome','language'])});
-console.log(`\n${passed}/58 Tests bestanden`);if(passed!==58)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
+await test('Locale-Auswahl validiert und normalisiert',async()=>{assert.equal(validateLocale('de-DE'),'de');assert.equal(validateLocale('EN'),'en');assert.throws(()=>validateLocale('fr'),e=>e.code==='LOCALE_INVALID')});
+await test('i18n-Katalog besitzt deutschen Fallback',async()=>{const catalog=localeCatalog(),bundle=messagesFor('en');assert.equal(catalog.defaultLocale,'de');assert.equal(bundle.fallbackLocale,'de');assert.equal(bundle.messages.homeTitle,'Home')});
+console.log(`\n${passed}/60 Tests bestanden`);if(passed!==60)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
