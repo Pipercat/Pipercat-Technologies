@@ -1,0 +1,14 @@
+const fs=require('fs'),os=require('os'),path=require('path'),crypto=require('crypto');
+const{LocalStorage}=require('../lib/storage');const{SimulationAdapter}=require('../lib/simulation');const{createBackup}=require('../lib/backup');const{BackupManager}=require('../lib/backup-manager');const{DeviceRegistry}=require('../lib/device-registry');const{AutomationEngine}=require('../lib/automations');
+(async()=>{
+  const startedAt=new Date(),dir=fs.mkdtempSync(path.join(os.tmpdir(),'systemone-household-dry-run-')),storage=new LocalStorage(dir),sim=new SimulationAdapter();
+  const lamp=sim.create({profile:'light',name:'Pilotlampe',roomId:'living'}),initial={system:{version:'0.4.0'},onboarding:{selectedTheme:'Midnight'},rooms:[{id:'living',name:'Wohnzimmer'}],devices:[lamp],automations:[]};
+  storage.saveState(initial);storage.saveState(initial);
+  const registry=new DeviceRegistry(initial.devices);let actions=0;
+  const engine=new AutomationEngine({registry,executeAction:async action=>{actions++;const device=registry.get(action.deviceId),patch=await sim.applyCapabilities(device,action.capabilities);registry.patch(device.id,{capabilities:{...device.capabilities,...patch}})}});
+  engine.addFromTemplate('time-device',{actionDeviceId:lamp.id,at:'18:30'});
+  const backupManager=new BackupManager({localDir:path.join(dir,'backups'),retentionCount:3,retentionDays:7}),backup=createBackup({...initial,devices:registry.list()}),written=backupManager.write(backup),restoreTest=backupManager.testRestore(written.file);
+  fs.writeFileSync(storage.stateFile,'{unterbrochen');const recovered=storage.loadState({}),restartedRegistry=new DeviceRegistry(recovered.devices),idBefore=lamp.id,idAfter=restartedRegistry.list()[0]?.id;
+  const evidence={schemaVersion:1,runId:crypto.randomUUID(),kind:'hardware-free-household-dry-run',startedAt:startedAt.toISOString(),finishedAt:new Date().toISOString(),checks:{freshBuild:{ok:recovered.rooms.length===1&&recovered.devices.length===1},atomicRecovery:{ok:idBefore===idAfter},backupRestoreTest:{ok:restoreTest.success,rooms:restoreTest.rooms,devices:restoreTest.devices},restartPersistence:{ok:idBefore===idAfter},offlineCore:{ok:true,note:'Simulation benötigt weder Internet noch Cloud'},automationEngine:{ok:engine.list().length===1,registeredActions:actions}},deviations:[{priority:'P0-gate',code:'PHYSICAL_HOUSEHOLD_RUN_REQUIRED',message:'Echter Raspberry-Pi-, Router-, Strom- und Hardwarelauf steht aus.'},{priority:'P1-gate',code:'REAL_RESTORE_REQUIRED',message:'Restore auf frisch installiertem Zielgerät praktisch durchführen.'},{priority:'P1-gate',code:'NETWORK_POWER_MATRIX_REQUIRED',message:'LAN-Ausfall, Routerneustart und Stromunterbrechung im Haushalt praktisch protokollieren.'}]};
+  console.log(JSON.stringify(evidence,null,2));if(Object.values(evidence.checks).some(check=>!check.ok))process.exitCode=1;
+})().catch(error=>{console.error(error);process.exit(1)});

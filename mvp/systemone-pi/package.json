@@ -9,7 +9,8 @@
     "check": "node --check server.js && for file in lib/*.js web/*.js scripts/*.js; do node --check \"$file\"; done",
     "test": "node scripts/selftest.js",
     "verify": "npm run check && npm test",
-    "release:audit": "node scripts/release-audit.js"
+    "release:audit": "node scripts/release-audit.js",
+    "pilot:dry-run": "node scripts/pilot-dry-run.js"
     ,"tls:provision": "node scripts/tls-identity.js provision"
     ,"tls:renew": "node scripts/tls-identity.js renew"
     ,"tls:revoke": "node scripts/tls-identity.js revoke"
