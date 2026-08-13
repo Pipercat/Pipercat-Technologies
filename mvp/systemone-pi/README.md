@@ -128,6 +128,7 @@ cd mvp/systemone-pi
 npm install
 npm run check
 npm test
+npm run verify
 npm start
 ```
 
@@ -235,6 +236,16 @@ HUE_SIM_FAULT=command npm start
 51. vollständige Kompatibilitätsklassen
 52. Hue bleibt bis zur Hardwarefreigabe experimentell
 53. ungeprüfte Hersteller bleiben aus dem Pilot
+54. Release-Audit erkennt offene Pflicht-Gates
+55. Release-Audit lehnt unvollständige Evidence ab
+
+## Release-Audit
+
+```bash
+npm run release:audit
+```
+
+Der Befehl schlägt bis zur echten Pilotfreigabe bewusst fehl und listet die offenen Pflicht-Gates aus `release-evidence.json` auf.
 
 ## Noch nicht produktionsreif
 

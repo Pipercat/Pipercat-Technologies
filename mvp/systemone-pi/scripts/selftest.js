@@ -7,6 +7,7 @@ const {validateLocation,calculateSolarEvents}=require('../lib/solar');
 const {THEMES,validateTheme}=require('../lib/themes');
 const {availableIntegrations,validateOnboardingRequest}=require('../lib/device-onboarding');
 const {LEVELS,publicCompatibilityCatalog,compatibilityFor}=require('../lib/compatibility');
+const {evaluateReleaseEvidence}=require('../lib/release-gates');
 const demo=[{id:'hue-1',hueId:'1',integration:'hue',type:'light',name:'Testlicht',online:true,on:false,brightness:50}];
 async function adapter(fault=''){process.env.HUE_MODE='simulation';process.env.HUE_SIM_FAULT=fault;const dir=fs.mkdtempSync(path.join(os.tmpdir(),'systemone-test-'));const storage=new LocalStorage(dir);return {hue:new HueAdapter({storage,demoDevices:demo,diagnostics:new Diagnostics()}),dir}}
 (async()=>{let passed=0;async function test(name,fn){try{await fn();passed++;console.log(`✓ ${name}`)}catch(e){console.error(`✗ ${name}: ${e.message}`);process.exitCode=1}}
@@ -63,4 +64,6 @@ await test('Simulationsgerät enthält lokale Geräteinformationen',async()=>{co
 await test('Kompatibilitätsklassen sind vollständig definiert',async()=>{assert.deepEqual(Object.keys(LEVELS),['certified','compatible','experimental','unsupported'])});
 await test('Hue bleibt bis Hardwarefreigabe experimentell',async()=>{const hue=compatibilityFor('hue');assert.equal(hue.level,'experimental');assert.equal(hue.pilot,true);assert.ok(hue.limitations.some(item=>item.includes('Physische Bridge')))});
 await test('Ungeprüfte Hersteller bleiben aus dem Pilot',async()=>{const catalog=publicCompatibilityCatalog();for(const id of ['govee','matter','shelly','zigbee','ikea']){const item=catalog.entries.find(entry=>entry.integration===id);assert.equal(item.level,'unsupported');assert.equal(item.pilot,false)}});
-console.log(`\n${passed}/53 Tests bestanden`);if(passed!==53)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
+await test('Release-Audit erkennt offene Pflicht-Gates',async()=>{const report=evaluateReleaseEvidence(require('../release-evidence.json'));assert.equal(report.ready,false);assert.equal(report.total,8);assert.ok(report.passed<report.total)});
+await test('Release-Audit akzeptiert nur vollständige Evidence',async()=>{assert.throws(()=>evaluateReleaseEvidence({schemaVersion:1,gates:{}}),e=>e.code==='RELEASE_EVIDENCE_INVALID')});
+console.log(`\n${passed}/55 Tests bestanden`);if(passed!==55)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});

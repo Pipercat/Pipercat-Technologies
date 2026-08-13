@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "release": "systemone-pi-closed-pilot",
+  "updatedAt": "2026-08-13",
+  "gates": {
+    "automated": { "required": true, "passed": true, "evidence": ["npm run verify", "55/55 hardwarefreie Selftests"] },
+    "app": { "required": true, "passed": false, "evidence": ["Smartphone-Grundlage 320/390/430 px geprüft", "weitere UI-Zustände offen"] },
+    "security": { "required": true, "passed": false, "evidence": [] },
+    "hardware": { "required": true, "passed": false, "evidence": [] },
+    "backupRecovery": { "required": true, "passed": false, "evidence": ["Backup v2 hardwarefrei getestet", "physische Recovery offen"] },
+    "updateRollback": { "required": true, "passed": false, "evidence": [] },
+    "operations": { "required": true, "passed": false, "evidence": [] },
+    "pilot": { "required": true, "passed": false, "evidence": [] }
+  }
+}
