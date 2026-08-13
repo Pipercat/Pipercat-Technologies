@@ -30,11 +30,13 @@ const { normalizedDeviceEvent } = require('./lib/device-events');
 const { securityHeaders, validateHost, validateWriteRequest, RateLimiter } = require('./lib/web-security');
 const { AuditLog } = require('./lib/audit-log');
 const { certificateStatus } = require('./lib/tls-identity');
+const { validateUpdatePackage, approveUpdate } = require('./lib/update-package');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
 const DATA_DIR = process.env.SYSTEMONE_DATA_DIR || path.join(__dirname, 'data');
 const diagnostics = new Diagnostics();
+const updatePublicKey=process.env.UPDATE_PUBLIC_KEY_PATH&&fs.existsSync(process.env.UPDATE_PUBLIC_KEY_PATH)?fs.readFileSync(process.env.UPDATE_PUBLIC_KEY_PATH,'utf8'):process.env.UPDATE_PUBLIC_KEY?.replace(/\\n/g,'\n')||null;
 const storage = new LocalStorage(DATA_DIR, { onError: error => diagnostics.record(error.code, error.message, error.details) });
 const reconnect = new ReconnectController({ diagnostics });
 
@@ -269,6 +271,8 @@ const requestHandler = async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/device-onboarding/complete') { const startedAt = Date.now(), input = validateOnboardingRequest(await readBody(req), state.rooms, registry.list()); const device = simulation.create({ ...input, id: input.candidateId || undefined, serialNumber: input.candidateId ? `DISC-${input.candidateId.toUpperCase()}` : undefined }); registry.upsert(device); persist(); return json(res, 201, { device: publicDevice(device), test: { success: true, latencyMs: Date.now() - startedAt, checks: [{ id: 'identity', ok: Boolean(device.id) }, { id: 'availability', ok: device.online }, { id: 'capabilities', ok: Object.keys(device.capabilities).length > 0 }], message: 'Identität, Erreichbarkeit und Funktionen wurden lokal geprüft.' } }); }
     if (req.method === 'GET' && url.pathname === '/api/system') return json(res, 200, state.system);
     if (req.method === 'GET' && url.pathname === '/api/system/identity') return json(res, 200, tlsEnabled ? certificateStatus(path.dirname(tlsKeyPath)) : { provisioned:false,revoked:false,keyLocalOnly:true,transport:'http-development' });
+    if (req.method === 'POST' && url.pathname === '/api/updates/validate') return json(res, 200, validateUpdatePackage(await readBody(req),{publicKey:updatePublicKey,currentVersion:state.system.version}));
+    if (req.method === 'POST' && url.pathname === '/api/updates/approve') { const validation=validateUpdatePackage(await readBody(req),{publicKey:updatePublicKey,currentVersion:state.system.version});return json(res,200,{validation,approval:approveUpdate(validation,auditActor)}); }
     if (req.method === 'GET' && url.pathname === '/api/themes') return json(res, 200, THEMES);
     if (req.method === 'GET' && url.pathname === '/api/dashboard') return json(res, 200, state.dashboard);
     if (req.method === 'PATCH' && url.pathname === '/api/dashboard') { state.dashboard = validateDashboard(await readBody(req)); persist(); return json(res, 200, state.dashboard); }

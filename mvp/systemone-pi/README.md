@@ -281,6 +281,8 @@ HUE_SIM_FAULT=command npm start
 115–118. Neustart-Fälligkeit, doppelte DST-Minute, Scheduler-Erholung und lokale Zeitzonenanzeige
 119–123. Security-Header, lokale Host-Allowlist, CSRF-Schutz, Rate-Limit und begrenztes redigiertes Audit-Log
 124–127. Lokales TLS-Provisioning, Schlüsselrotation, Widerruf und explizite HTTPS-/Secure-Cookie-Laufzeit
+128–132. Signaturvalidierung, Manipulationsschutz, falscher Schlüssel, Versions-/Zielprüfung und lokale Adminfreigabe
+133. Admin-UI trennt kryptografische Updateprüfung und funktionale Freigabe
 
 ## Release-Audit
 
@@ -299,6 +301,8 @@ Die aktuelle, bewusst konservative Hue-Freigabe sowie das wiederholbare Hardware
 Das deterministische Verhalten bei Neustart, doppelter DST-Minute und übersprungener Sommerzeit ist in [`docs/automation-time-behavior.md`](docs/automation-time-behavior.md) festgelegt.
 
 Provisionierung, Browser-Onboarding, Erneuerung und Widerruf der lokalen HTTPS-Geräteidentität sind in [`docs/tls-device-identity.md`](docs/tls-device-identity.md) beschrieben. Der private Schlüssel bleibt mit Dateimodus `0600` auf dem Zielgerät.
+
+Das transportneutrale Ed25519-Updateformat, die Offline-Schlüsselgrenze und die lokale Adminfreigabe sind in [`docs/signed-update-format.md`](docs/signed-update-format.md) definiert.
 
 ## Danach
 
