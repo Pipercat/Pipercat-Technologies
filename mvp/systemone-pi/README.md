@@ -200,7 +200,7 @@ Vor jedem externen Einsatz ist die [`Pilotkunden-Checkliste`](docs/pilot-custome
 - `POST /api/integrations/hue/reconnect`
 - `POST /api/onboarding/pair-admin/session`
 - `POST /api/onboarding/pair-admin/complete`
-- `GET /api/backup`
+- `GET /api/backup` (vollständiger Export ausschließlich nach Admin-Pairing mit `system:read`-Session)
 - `POST /api/backup/restore`
 - `POST /api/backup/validate`
 - `GET /api/backups/status`

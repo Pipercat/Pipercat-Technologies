@@ -164,6 +164,7 @@ function json(res, status, data, headers = {}) {
 function sessionToken(req, cookieName = 'systemone_session') { const cookie = String(req.headers.cookie || '').split(';').map(item => item.trim()).find(item => item.startsWith(`${cookieName}=`)); return cookie ? decodeURIComponent(cookie.split('=').slice(1).join('=')) : String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''); }
 function bearerToken(req) { return String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''); }
 function requireSession(req, permission = 'system:write', cookieName = 'systemone_session') { return localSessions.authenticate(sessionToken(req, cookieName), permission); }
+function requirePairedSession(req,permission='system:read'){if(!state.onboarding.adminPaired)throw Object.assign(new Error('Vor diesem Zugriff muss der lokale Administrator gekoppelt werden.'),{code:'ADMIN_PAIRING_REQUIRED'});return requireSession(req,permission)}
 function publicState() { const {auditLog:_,updateSlots:__,...publicData}=state,onboarding = { ...state.onboarding, pairingSession: publicSession(state.onboarding.pairingSession) }; return { ...publicData, onboarding, updateSlots:publicUpdateSlotState(state.updateSlots), devices: registry.list({ publicOnly: true }), automations: automationEngine.list() }; }
 function readBody(req,maxBytes){return readJsonBody(req,{maxBytes})}
 function serveStatic(req, res) {
@@ -327,7 +328,7 @@ const requestHandler = async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/home') return json(res, 200, state.home);
     if (req.method === 'PATCH' && url.pathname === '/api/home') { const body = await readBody(req); if (typeof body.name === 'string' && body.name.trim()) state.home.name = body.name.trim().slice(0, 80); if (body.location !== undefined) state.home.location = body.location === null ? null : validateLocation(body.location); persist(); return json(res, 200, state.home); }
     if (req.method === 'GET' && url.pathname === '/api/state') { if (url.searchParams.get('sync') === '1' && reconnect.state !== 'backoff') await syncHue(); updateReconnectState(); return json(res, 200, publicState()); }
-    if (req.method === 'GET' && url.pathname === '/api/backup') return json(res, 200, exportBackup());
+    if (req.method === 'GET' && url.pathname === '/api/backup') {requirePairedSession(req,'system:read');return json(res, 200, exportBackup());}
     if (req.method === 'GET' && url.pathname === '/api/backups/status') return json(res,200,backupManager.publicStatus(lastBackupRestoreTest));
     if (req.method === 'POST' && url.pathname === '/api/backups/run') return json(res,201,runBackupCycle());
     if (req.method === 'POST' && url.pathname === '/api/backups/export') {const body=await readBody(req),target=backupManager.allowedRoots[Number(body.targetId)];if(!target)throw Object.assign(new Error('Freigegebenes USB-/NAS-Ziel wurde nicht gefunden.'),{code:'BACKUP_TARGET_FORBIDDEN'});const written=backupManager.write(exportBackup(),{targetDir:target,passphrase:body.passphrase||null});return json(res,201,{written,restoreTest:backupManager.testRestore(written.file,{targetDir:target,passphrase:body.passphrase||null})});}
