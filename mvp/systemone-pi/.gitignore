@@ -11,3 +11,4 @@ backups/
 *.p12
 *.pfx
 *.tmp
+dist/

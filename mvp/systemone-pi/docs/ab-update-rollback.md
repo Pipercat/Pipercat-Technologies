@@ -14,7 +14,7 @@ Stand: 13.08.2026 · Bearbeitet von: Pipercat Technologies
 ## Praktisches Pilotprotokoll auf Raspberry Pi
 
 1. Vollständiges Backup der separaten Datenpartition erstellen und Prüfsumme protokollieren.
-2. Bestätigten Slot und Version erfassen; signiertes Paket in den inaktiven Slot schreiben und dessen Hash erneut prüfen.
+2. Bestätigten Slot und Version erfassen; signiertes Release-Bundle prüfen, externe Archivprüfsumme und eingebettete Dateihashes verifizieren, in den inaktiven Slot schreiben und `sourceCommit` protokollieren.
 3. `current.next` auf den Candidate-Slot setzen, den Symlink atomar per Rename als `current` aktivieren, Watchdog/Bootzähler aktivieren und neu starten. Der alte Symlinkwert bleibt als Rollbackziel protokolliert.
 4. `/api/health`, lokalen Speicher, Automationen und Migrationsstatus innerhalb des Fünf-Minuten-Fensters prüfen.
 5. Erfolgsfall: Candidate bestätigen und Bootzähler löschen. Fehlerfall: vorherigen Slot setzen und neu starten.

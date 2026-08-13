@@ -8,4 +8,5 @@ Stand: 13.08.2026 · Bearbeitet von: Pipercat Technologies
 - Vor Freigabe werden Ziel `systemone-pi`, strikt höhere SemVer-Version und `minCoreVersion` geprüft.
 - Funktionale Updates werden nach erfolgreicher Prüfung nicht automatisch installiert. Ein authentifizierter Owner/Administrator muss eine einmalige lokale Freigabe erzeugen.
 - Online- und Offline-Transport verwenden dasselbe Paket und dieselbe Verifikation; der Transport selbst ist nicht vertrauenswürdig.
-- Dieser Prototyp validiert und genehmigt Pakete. Atomare Installation und Rollback folgen in der nächsten Betriebseinheit.
+- Der Payload ist das mit `npm run release:build` erzeugte, inventarisierte Release-Bundle. Archivprüfsumme, eingebettetes Dateimanifest und `sourceCommit` verbinden die Signatur mit dem tatsächlich installierten Slot-Inhalt.
+- Atomare Installation und Rollback folgen dem dokumentierten A/B-Zustandsautomaten; der reale Ziel-Pi-Nachweis bleibt ein separates Freigabegate.
