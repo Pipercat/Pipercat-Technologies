@@ -45,7 +45,7 @@ class Diagnostics {
   record(code, message, details = {}) {
     const catalog = ERROR_CATALOG[code] || ERROR_CATALOG.INTERNAL_ERROR;
     const event = { id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`, timestamp: new Date().toISOString(), code,
-      severity: details.severity || catalog.severity, message, action: details.action || catalog.action, details: sanitize(details) };
+      severity: details.severity || catalog.severity, message:redactText(message), action:redactText(details.action || catalog.action), details: sanitize(details) };
     this.events.unshift(event); this.events = this.events.slice(0, this.limit); return event;
   }
   health(state, hue) {
@@ -61,15 +61,16 @@ class Diagnostics {
       check('memory', freeMb > 100, `${freeMb} MB frei`)
     ];
     return { status: checks.every(item=>item.ok) ? 'ok' : 'degraded', startedAt:this.startedAt, timestamp:new Date().toISOString(), checks,
-      recentErrors:this.events.filter(e=>e.severity==='error').slice(0,10), recentWarnings:this.events.filter(e=>e.severity==='warning').slice(0,10) };
+      recentErrors:sanitize(this.events.filter(e=>e.severity==='error').slice(0,10)), recentWarnings:sanitize(this.events.filter(e=>e.severity==='warning').slice(0,10)) };
   }
   report(state,hue) {
     return { generatedAt:new Date().toISOString(), system:{name:state.system?.name,version:state.system?.version,mode:state.system?.mode,build:state.system?.build},
       runtime:{node:process.version,platform:process.platform,arch:process.arch,uptimeSeconds:Math.round(process.uptime())},
       hue:{mode:hue.mode,hasBridge:Boolean(hue.bridge),paired:Boolean(state.integrations?.hue?.paired),bridgeId:hue.bridge?.id||null},
-      counts:{rooms:state.rooms?.length||0,devices:state.devices?.length||0}, health:this.health(state,hue), events:this.events };
+      counts:{rooms:state.rooms?.length||0,devices:state.devices?.length||0}, health:this.health(state,hue), events:sanitize(this.events) };
   }
 }
 function check(name,ok,message){return {name,ok:Boolean(ok),message}}
-function sanitize(value){if(Array.isArray(value))return value.map(sanitize);if(!value||typeof value!=='object')return value;const clone={};for(const [key,item] of Object.entries(value)){clone[key]=/password|username|token|secret|credential|recovery/i.test(key)?'[REDACTED]':sanitize(item)}return clone}
-module.exports={Diagnostics,ERROR_CATALOG,sanitize};
+function redactText(value){return String(value??'').replace(/(token|password|secret|credential|recovery(?:Code)?|username)[=: ]+[^\s,;]+/gi,'$1=[REDACTED]').replace(/\/api\/(?:username|token|secret|credential)\/[^\s,;]*/gi,'/api/[REDACTED]')}
+function sanitize(value){if(typeof value==='string')return redactText(value);if(Array.isArray(value))return value.map(sanitize);if(!value||typeof value!=='object')return value;const clone={};for(const [key,item] of Object.entries(value)){clone[key]=/password|username|token|secret|credential|recovery/i.test(key)?'[REDACTED]':sanitize(item)}return clone}
+module.exports={Diagnostics,ERROR_CATALOG,redactText,sanitize};
