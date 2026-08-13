@@ -179,6 +179,10 @@ HUE_SIM_FAULT=command npm start
 - `GET /api/backup`
 - `POST /api/backup/restore`
 - `POST /api/backup/validate`
+- `GET /api/backups/status`
+- `POST /api/backups/run` (atomar, rotiert und anschließend vollständig Restore-getestet)
+- `POST /api/backups/export` (nur Ziele aus `SYSTEMONE_EXPORT_ROOTS`, optional AES-256-GCM)
+- `POST /api/backups/restore-test`
 - `GET /api/automations`
 - `GET /api/automations/templates`
 - `POST /api/automations`

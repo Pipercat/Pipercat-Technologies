@@ -14,6 +14,7 @@ const { DeviceRegistry } = require('./lib/device-registry');
 const { SimulationAdapter } = require('./lib/simulation');
 const { assertAdapter } = require('./lib/adapter');
 const { createBackup, validateBackup, summarizeBackup } = require('./lib/backup');
+const { BackupManager } = require('./lib/backup-manager');
 const { AutomationEngine, TEMPLATES, validateAutomation, builderOptions } = require('./lib/automations');
 const { AutomationScheduler } = require('./lib/scheduler');
 const { validateLocation, calculateSolarEvents } = require('./lib/solar');
@@ -40,6 +41,8 @@ const diagnostics = new Diagnostics();
 const updatePublicKey=process.env.UPDATE_PUBLIC_KEY_PATH&&fs.existsSync(process.env.UPDATE_PUBLIC_KEY_PATH)?fs.readFileSync(process.env.UPDATE_PUBLIC_KEY_PATH,'utf8'):process.env.UPDATE_PUBLIC_KEY?.replace(/\\n/g,'\n')||null;
 const storage = new LocalStorage(DATA_DIR, { onError: error => diagnostics.record(error.code, error.message, error.details) });
 const reconnect = new ReconnectController({ diagnostics });
+const backupManager=new BackupManager({localDir:path.join(DATA_DIR,'backups'),retentionCount:process.env.BACKUP_RETENTION_COUNT||7,retentionDays:process.env.BACKUP_RETENTION_DAYS||30,allowedRoots:String(process.env.SYSTEMONE_EXPORT_ROOTS||'').split(path.delimiter).filter(Boolean)});
+let lastBackupRestoreTest=null;
 
 const DEVICE_PROFILES = publicProfiles();
 
@@ -213,6 +216,7 @@ function createSimulatedDevice(body) {
   registry.upsert(device); persist(); return publicDevice(device);
 }
 function exportBackup() { syncRegistryState(); return createBackup(state, state.system.version); }
+function runBackupCycle(){try{const written=backupManager.write(exportBackup());lastBackupRestoreTest=backupManager.testRestore(written.file);return{written,restoreTest:lastBackupRestoreTest}}catch(error){lastBackupRestoreTest={success:false,code:error.code||'BACKUP_CYCLE_FAILED',message:error.message,testedAt:new Date().toISOString()};diagnostics.record(lastBackupRestoreTest.code,lastBackupRestoreTest.message);throw error}}
 function restoreBackup(input) {
   const backup = validateBackup(input);
   const snapshot = { rooms: structuredClone(state.rooms), devices: structuredClone(registry.list()), onboarding: structuredClone(state.onboarding) };
@@ -289,6 +293,10 @@ const requestHandler = async (req, res) => {
     if (req.method === 'PATCH' && url.pathname === '/api/home') { const body = await readBody(req); if (typeof body.name === 'string' && body.name.trim()) state.home.name = body.name.trim().slice(0, 80); if (body.location !== undefined) state.home.location = body.location === null ? null : validateLocation(body.location); persist(); return json(res, 200, state.home); }
     if (req.method === 'GET' && url.pathname === '/api/state') { if (url.searchParams.get('sync') === '1' && reconnect.state !== 'backoff') await syncHue(); updateReconnectState(); return json(res, 200, publicState()); }
     if (req.method === 'GET' && url.pathname === '/api/backup') return json(res, 200, exportBackup());
+    if (req.method === 'GET' && url.pathname === '/api/backups/status') return json(res,200,backupManager.publicStatus(lastBackupRestoreTest));
+    if (req.method === 'POST' && url.pathname === '/api/backups/run') return json(res,201,runBackupCycle());
+    if (req.method === 'POST' && url.pathname === '/api/backups/export') {const body=await readBody(req),target=backupManager.allowedRoots[Number(body.targetId)];if(!target)throw Object.assign(new Error('Freigegebenes USB-/NAS-Ziel wurde nicht gefunden.'),{code:'BACKUP_TARGET_FORBIDDEN'});const written=backupManager.write(exportBackup(),{targetDir:target,passphrase:body.passphrase||null});return json(res,201,{written,restoreTest:backupManager.testRestore(written.file,{targetDir:target,passphrase:body.passphrase||null})});}
+    if (req.method === 'POST' && url.pathname === '/api/backups/restore-test') {const body=await readBody(req);lastBackupRestoreTest=backupManager.testRestore(body.file,{passphrase:body.passphrase||null});return json(res,200,lastBackupRestoreTest);}
     if (req.method === 'POST' && url.pathname === '/api/backup/validate') return json(res, 200, summarizeBackup(await readBody(req)));
     if (req.method === 'GET' && url.pathname === '/api/automations/templates') return json(res, 200, TEMPLATES);
     if (req.method === 'GET' && url.pathname === '/api/automations/scheduler') return json(res, 200, scheduler.status());
@@ -371,6 +379,7 @@ server.listen(PORT, '0.0.0.0', async () => {
   console.log(`SystemONE Pi MVP v0.4.0 läuft auf ${tlsEnabled?'https':'http'}://localhost:${PORT} · Hue-Modus: ${hue.mode}`);
   if (hue.mode !== 'real') diagnostics.record('HUE_REAL_MODE_DISABLED', 'Sicherer Simulationsmodus aktiv: keine private Hue Bridge wird angesprochen.');
   scheduler.start();
+  if(!backupManager.list().length)runBackupCycle();
   await discoverHue(); if (state.integrations.hue.paired) await syncHue();
 });
 setInterval(async () => {
@@ -378,3 +387,4 @@ setInterval(async () => {
   if (reconnect.canRetry()) { reconnect.beginAttempt(); updateReconnectState(); await syncHue(); return; }
   if (reconnect.state !== 'backoff') await syncHue();
 }, 3000).unref();
+setInterval(()=>{try{runBackupCycle()}catch{}},Math.max(3600000,Number(process.env.BACKUP_INTERVAL_MS)||86400000)).unref();
