@@ -33,4 +33,13 @@ function scanTrackedEntries(entries=[]){
   return findings;
 }
 
-module.exports={prohibitedPath,scanTrackedEntries};
+function scanHistoricalBlobs(blobs=[]){
+  const seen=new Set(),findings=[];
+  for(const blob of blobs)for(const finding of scanTrackedEntries([{path:blob.path,content:blob.content}])){
+    const item={...finding,object:String(blob.object||'').slice(0,12)},key=[item.object,item.path,item.line,item.rule].join(':');
+    if(!seen.has(key)){seen.add(key);findings.push(item)}
+  }
+  return findings;
+}
+
+module.exports={prohibitedPath,scanTrackedEntries,scanHistoricalBlobs};

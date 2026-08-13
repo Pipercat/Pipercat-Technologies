@@ -4,6 +4,8 @@
 
 `npm run verify` führt diesen Preflight vor den Selftests aus. `.gitignore` sperrt Laufzeitdaten, Backups, echte Environment-Dateien, PEM-/Key- und PKCS#12-Dateien. Ausschließlich leere, dokumentierte `*.env.example`-Vorlagen dürfen versioniert werden.
 
+`npm run secrets:history` prüft zusätzlich alle erreichbaren Textblobs lokaler Branches, Remote-Refs und Tags. Binärblobs sowie Blobs über 2 MiB werden gezählt und bewusst übersprungen; sie benötigen bei einem Release einen separaten Artefakt-/Provider-Scan. Historientreffer zeigen nur gekürzte Objekt-ID, Pfad, Zeile und Regel.
+
 ## Bei einem Treffer
 
 1. Commit/Push stoppen; Wert nicht in Ticket, Chat, Diagnose oder Screenshot kopieren.
@@ -12,4 +14,4 @@
 4. Redigierte Vorfallnotiz mit Regel, Zeitraum, Rotation und Retest erfassen.
 5. `npm run secrets:check`, `npm run verify` und gegebenenfalls externen Repository-Scan erneut ausführen.
 
-Der lokale Musterabgleich ersetzt keinen serverseitigen GitHub-Secret-Scan, keine Historienanalyse und kein externes Security-Review. Frühere Commits und noch nicht bekannte Tokenformate benötigen separate Prüfung; das externe Security-Gate bleibt offen.
+Der lokale Musterabgleich ersetzt keinen serverseitigen GitHub-Secret-Scan und kein externes Security-Review. Nicht erreichbare/reflog-only Objekte, übersprungene Binär-/Großblobs und noch nicht bekannte Tokenformate benötigen separate Prüfung; das externe Security-Gate bleibt offen.
