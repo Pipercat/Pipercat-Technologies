@@ -10,6 +10,7 @@ const {LEVELS,publicCompatibilityCatalog,compatibilityFor}=require('../lib/compa
 const {evaluateReleaseEvidence}=require('../lib/release-gates');
 const {STEPS,migrateOnboardingState,advanceOnboarding,resumeOnboarding,resetOnboarding}=require('../lib/onboarding-state');
 const {validateLocale,localeCatalog,messagesFor}=require('../lib/i18n');
+const {TTL_MS,MAX_FAILED_ATTEMPTS,createSession,assertSessionCanStart,verifySession,publicSession}=require('../lib/admin-pairing');
 const demo=[{id:'hue-1',hueId:'1',integration:'hue',type:'light',name:'Testlicht',online:true,on:false,brightness:50}];
 async function adapter(fault=''){process.env.HUE_MODE='simulation';process.env.HUE_SIM_FAULT=fault;const dir=fs.mkdtempSync(path.join(os.tmpdir(),'systemone-test-'));const storage=new LocalStorage(dir);return {hue:new HueAdapter({storage,demoDevices:demo,diagnostics:new Diagnostics()}),dir}}
 (async()=>{let passed=0;async function test(name,fn){try{await fn();passed++;console.log(`✓ ${name}`)}catch(e){console.error(`✗ ${name}: ${e.message}`);process.exitCode=1}}
@@ -73,4 +74,10 @@ await test('Onboarding erzwingt geordnete Übergänge',async()=>{const initial=r
 await test('Onboarding wird nach Neustart wiederaufgenommen',async()=>{let flow=resetOnboarding();flow=advanceOnboarding(flow,'language');flow=advanceOnboarding(flow,'theme');const restored=resumeOnboarding(JSON.parse(JSON.stringify(flow)));assert.equal(restored.currentStep,'theme');assert.deepEqual(restored.completedSteps,['welcome','language'])});
 await test('Locale-Auswahl validiert und normalisiert',async()=>{assert.equal(validateLocale('de-DE'),'de');assert.equal(validateLocale('EN'),'en');assert.throws(()=>validateLocale('fr'),e=>e.code==='LOCALE_INVALID')});
 await test('i18n-Katalog besitzt deutschen Fallback',async()=>{const catalog=localeCatalog(),bundle=messagesFor('en');assert.equal(catalog.defaultLocale,'de');assert.equal(bundle.fallbackLocale,'de');assert.equal(bundle.messages.homeTitle,'Home')});
-console.log(`\n${passed}/60 Tests bestanden`);if(passed!==60)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
+await test('Admin-Pairing besitzt fünf Minuten Lebensdauer',async()=>{const s=createSession({token:'token',code:'123456',now:1000});assert.equal(Date.parse(s.expiresAt)-Date.parse(s.createdAt),TTL_MS)});
+await test('Parallele Admin-Pairing-Sitzung wird verhindert',async()=>{const s=createSession({token:'token',code:'123456',now:1000});assert.throws(()=>assertSessionCanStart(s,2000),e=>e.code==='PAIRING_SESSION_ACTIVE')});
+await test('Admin-Pairing-Token ist nur einmal verwendbar',async()=>{const s=createSession({token:'token',code:'123456',now:1000});assert.equal(verifySession(s,{token:'token',code:'123456'},2000),true);assert.throws(()=>verifySession(null,{token:'token',code:'123456'},2000),e=>e.code==='PAIRING_SESSION_MISSING')});
+await test('Falscher Pairing-Code liefert strukturierten Fehler',async()=>{const s=createSession({token:'token',code:'123456',now:1000});assert.throws(()=>verifySession(s,{token:'token',code:'000000'},2000),e=>e.code==='PAIRING_INVALID');assert.equal(s.failedAttempts,1)});
+await test('Admin-Pairing begrenzt Fehlversuche',async()=>{const s=createSession({token:'token',code:'123456',now:1000});for(let i=0;i<MAX_FAILED_ATTEMPTS-1;i++)assert.throws(()=>verifySession(s,{token:'bad',code:'000000'},2000));assert.throws(()=>verifySession(s,{token:'bad',code:'000000'},2000),e=>e.code==='PAIRING_RATE_LIMITED')});
+await test('Öffentlicher Pairing-Status redigiert Secrets',async()=>{const s=createSession({token:'secret',code:'123456',pairingUri:'systemone://secret',qrDataUrl:'data:secret',now:1000}),safe=publicSession(s);assert.equal(JSON.stringify(safe).includes('secret'),false);assert.equal(safe.attemptsRemaining,MAX_FAILED_ATTEMPTS)});
+console.log(`\n${passed}/66 Tests bestanden`);if(passed!==66)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});

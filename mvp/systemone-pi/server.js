@@ -20,6 +20,7 @@ const { THEMES, validateTheme } = require('./lib/themes');
 const { availableIntegrations, validateOnboardingRequest } = require('./lib/device-onboarding');
 const { publicCompatibilityCatalog } = require('./lib/compatibility');
 const { migrateOnboardingState, advanceOnboarding, resetOnboarding } = require('./lib/onboarding-state');
+const { createSession, assertSessionCanStart, verifySession, publicSession } = require('./lib/admin-pairing');
 const { DEFAULT_LOCALE, validateLocale, localeCatalog, messagesFor } = require('./lib/i18n');
 
 const PORT = Number(process.env.PORT || 4170);
@@ -101,7 +102,7 @@ function json(res, status, data) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify({ success: status < 400, data: status < 400 ? data : null, error: status >= 400 ? data : null }));
 }
-function publicState() { return { ...state, devices: registry.list({ publicOnly: true }), automations: automationEngine.list() }; }
+function publicState() { const onboarding = { ...state.onboarding, pairingSession: publicSession(state.onboarding.pairingSession) }; return { ...state, onboarding, devices: registry.list({ publicOnly: true }), automations: automationEngine.list() }; }
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -154,19 +155,17 @@ async function syncHue() {
   persist(); return state.devices;
 }
 async function createPairingSession() {
+  assertSessionCanStart(state.onboarding.pairingSession);
   const token = crypto.randomBytes(24).toString('base64url');
   const code = String(crypto.randomInt(100000, 1000000));
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
   const pairingUri = `systemone://pair?token=${token}&code=${code}`;
   const qrDataUrl = await QRCode.toDataURL(pairingUri, { errorCorrectionLevel: 'M', margin: 2, width: 240 });
-  state.onboarding.pairingSession = { token, code, expiresAt, pairingUri, qrDataUrl };
+  state.onboarding.pairingSession = createSession({ token, code, pairingUri, qrDataUrl });
   return state.onboarding.pairingSession;
 }
 function completePairing(body) {
   const session = state.onboarding.pairingSession;
-  if (!session) throw Object.assign(new Error('Keine aktive Pairing-Sitzung.'), { code: 'PAIRING_SESSION_MISSING' });
-  if (Date.parse(session.expiresAt) < Date.now()) throw Object.assign(new Error('Pairing-Sitzung ist abgelaufen.'), { code: 'PAIRING_SESSION_EXPIRED' });
-  if (body.token !== session.token || String(body.code) !== session.code) throw Object.assign(new Error('Pairing-Code oder Token ist ungültig.'), { code: 'PAIRING_INVALID' });
+  verifySession(session, body);
   state.onboarding.adminPaired = true; state.onboarding.pairingSession = null; persist(); return { adminPaired: true };
 }
 function createSimulatedDevice(body) {
@@ -240,6 +239,7 @@ const server = http.createServer(async (req, res) => {
     if (automationMatch && req.method === 'DELETE') { if (!automationEngine.remove(automationMatch[1])) return json(res, 404, { code: 'AUTOMATION_NOT_FOUND', message: 'Automation nicht gefunden.' }); persist(); return json(res, 200, { deleted: true }); }
     if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/session') return json(res, 201, await createPairingSession());
     if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/complete') return json(res, 200, completePairing(await readBody(req)));
+    if (req.method === 'DELETE' && url.pathname === '/api/onboarding/pair-admin/session') { const revoked = Boolean(state.onboarding.pairingSession); state.onboarding.pairingSession = null; return json(res, 200, { revoked }); }
     if (req.method === 'GET' && url.pathname === '/api/integrations/hue/discover') return json(res, 200, await discoverHue());
     if (req.method === 'POST' && url.pathname === '/api/integrations/hue/sync') { reconnect.beginAttempt(); updateReconnectState(); return json(res, 200, await syncHue()); }
     if (req.method === 'POST' && url.pathname === '/api/integrations/hue/reconnect') { reconnect.beginAttempt(); updateReconnectState(); await discoverHue(); if (state.integrations.hue.paired) await syncHue(); return json(res, 200, state.integrations.hue); }
@@ -285,7 +285,7 @@ const server = http.createServer(async (req, res) => {
     return json(res, 404, { code: 'NOT_FOUND', message: 'Route nicht gefunden.' });
   } catch (error) {
     diagnostics.record(error.code || 'INTERNAL_ERROR', error.message || 'Unbekannter Fehler.', error.details || {});
-    const conflictCodes = ['HUE_LINK_BUTTON_REQUIRED','PAIRING_SESSION_EXPIRED','PAIRING_INVALID','HUE_DEVICE_OFFLINE','DEVICE_OFFLINE'];
+    const conflictCodes = ['HUE_LINK_BUTTON_REQUIRED','PAIRING_SESSION_ACTIVE','PAIRING_SESSION_EXPIRED','PAIRING_INVALID','PAIRING_RATE_LIMITED','HUE_DEVICE_OFFLINE','DEVICE_OFFLINE'];
     return json(res, conflictCodes.includes(error.code) ? 409 : 400, { code: error.code || 'INTERNAL_ERROR', message: error.message || 'Ungültige Anfrage.' });
   }
 });
