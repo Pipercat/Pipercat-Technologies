@@ -167,7 +167,7 @@ function serveStatic(req, res) {
   const normalized = path.normalize(rawPath).replace(/^([.][.][/\\])+/, '');
   const filePath = path.join(PUBLIC_DIR, normalized);
   if (!filePath.startsWith(PUBLIC_DIR) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) return false;
-  const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript', '.svg': 'image/svg+xml' };
+  const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript', '.svg': 'image/svg+xml','.webmanifest':'application/manifest+json' };
   res.writeHead(200, { ...securityHeaders(), 'Content-Type': `${types[path.extname(filePath)] || 'application/octet-stream'}; charset=utf-8` });
   fs.createReadStream(filePath).pipe(res); return true;
 }

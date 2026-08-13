@@ -157,6 +157,8 @@ Der stabile Mobile-Vertrag ist als **API v1** unter `/api/v1/*` verfügbar. Die 
 
 Das verbindliche Betriebs- und Einwilligungsmodell für Diagnose, Updates, künftige Fernwartung und A/B-Rollback steht in [`docs/remote-maintenance-policy.md`](docs/remote-maintenance-policy.md). Fernwartung bleibt im MVP standardmäßig deaktiviert.
 
+Der erste Mobile Client ist gemäß [`ADR-001`](docs/adr-001-mobile-client.md) eine installierbare Local-First-PWA. Sie nutzt API v1, cached ausschließlich die statische Shell und benötigt weder Pipercat-Konto noch Cloudkonto.
+
 - `GET /api/health`
 - `GET /api/contract` beziehungsweise `GET /api/v1/contract`
 - `GET /api/diagnostics`
