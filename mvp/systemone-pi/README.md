@@ -278,6 +278,7 @@ HUE_SIM_FAULT=command npm start
 105–107. Deterministische Aktionsketten, geführte Feld-/Operatorauswahl und verständliche Bedingungsvalidierung
 108–110. Sonnenereignis-/Offsetvalidierung, lokaler Tageswechsel und cloudfreie UI-Erklärung
 111–114. Verlaufsrotation, partieller idempotenter Retry, Einmalwiederholung und Fehlerredaktion
+115–118. Neustart-Fälligkeit, doppelte DST-Minute, Scheduler-Erholung und lokale Zeitzonenanzeige
 
 ## Release-Audit
 
@@ -292,6 +293,8 @@ Der Befehl schlägt bis zur echten Pilotfreigabe bewusst fehl und listet die off
 Vor Kundeneinsatz fehlen weiterhin TLS/Reverse-Proxy-Härtung, Geräteidentitäten/Zertifikate, signierte Updates, umfassende API-Rate-Limits, zusätzliche Origin-/CSRF-Prüfungen, vollständige Backup-Migrationen und ein Security-Review. Lokale Rollen, ablaufende Sessions, Pairing-Rate-Limit und `SameSite=Strict`-Cookies sind als MVP-Basis vorhanden. Der echte Hue-Hardwaretest bleibt bewusst für einen späteren Pilot zurückgestellt.
 
 Die aktuelle, bewusst konservative Hue-Freigabe sowie das wiederholbare Hardwareprotokoll stehen in [`docs/hue-support-matrix.md`](docs/hue-support-matrix.md). Kein reales Hue-Modell wird vor einem protokollierten Hardwarelauf als Certified ausgewiesen.
+
+Das deterministische Verhalten bei Neustart, doppelter DST-Minute und übersprungener Sommerzeit ist in [`docs/automation-time-behavior.md`](docs/automation-time-behavior.md) festgelegt.
 
 ## Danach
 

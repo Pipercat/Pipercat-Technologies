@@ -45,6 +45,7 @@ const initialState = {
   devices: [],
   automations: [],
   automationHistory: [],
+  schedulerExecuted: {},
   dashboard: defaultDashboard()
 };
 
@@ -59,6 +60,7 @@ const state = {
   devices: Array.isArray(persisted.devices) ? persisted.devices.map(migrateLegacyDevice) : [],
   automations: Array.isArray(persisted.automations) ? persisted.automations : [],
   automationHistory: Array.isArray(persisted.automationHistory) ? persisted.automationHistory.slice(0,100) : [],
+  schedulerExecuted: persisted.schedulerExecuted && typeof persisted.schedulerExecuted === 'object' ? persisted.schedulerExecuted : {},
   dashboard: migrateDashboard(persisted.dashboard)
 };
 state.onboarding.flow = migrateOnboardingState(state.onboarding);
@@ -97,7 +99,7 @@ async function applyDeviceCapabilities(deviceId, capabilityPatch) {
 const validPersistedAutomations = state.automations.flatMap(value => { try { return [validateAutomation(value, registry)]; } catch (error) { diagnostics.record('AUTOMATION_INVALID', 'Gespeicherte Automation wurde übersprungen.', { cause: error.message }); return []; } });
 const automationEngine = new AutomationEngine({ registry, automations: validPersistedAutomations, history: state.automationHistory, executeAction: action => applyDeviceCapabilities(action.deviceId, action.capabilities) });
 const localSessions = new LocalSessionStore({ initial: storage.loadSessions(), onChange: sessions => storage.saveSessions(sessions) });
-const scheduler = new AutomationScheduler({ engine: automationEngine, solarProvider: async date => state.home.location ? calculateSolarEvents(date, state.home.location) : null });
+const scheduler = new AutomationScheduler({ engine: automationEngine, initialExecuted: state.schedulerExecuted, onExecutedChange: executed => { state.schedulerExecuted=executed;persist(); }, solarProvider: async date => state.home.location ? calculateSolarEvents(date, state.home.location) : null });
 state.automations = automationEngine.list();
 
 function syncRegistryState() { state.devices = registry.list(); }
