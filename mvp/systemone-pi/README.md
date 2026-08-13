@@ -254,6 +254,7 @@ HUE_SIM_FAULT=command npm start
 60. i18n-Katalog besitzt deutschen Fallback
 61–66. Lebensdauer, Parallelblock, Einmalverwendung, Fehlversuche und Secret-Redaktion des Admin-Pairings
 67–72. Rollenmatrix, Secret-freie Sessions, Ablauf, Widerruf, Rechteprüfung und Neustart-Persistenz
+73–77. Physische Recovery-Pflicht, Einmalcode, Fehlversuchssperre sowie Diagnose- und Backup-Redaktion
 
 ## Release-Audit
 

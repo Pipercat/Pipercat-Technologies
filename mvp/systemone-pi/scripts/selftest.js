@@ -1,4 +1,4 @@
-const assert=require('assert');const fs=require('fs');const os=require('os');const path=require('path');const {LocalStorage}=require('../lib/storage');const {HueAdapter}=require('../lib/hue');const {Diagnostics}=require('../lib/diagnostics');const {ReconnectController}=require('../lib/reconnect');
+const assert=require('assert');const fs=require('fs');const os=require('os');const path=require('path');const {LocalStorage}=require('../lib/storage');const {HueAdapter}=require('../lib/hue');const {Diagnostics,sanitize}=require('../lib/diagnostics');const {ReconnectController}=require('../lib/reconnect');
 const {validateCapabilities}=require('../lib/capabilities');const {migrateLegacyDevice,publicDevice}=require('../lib/device-model');const {DeviceRegistry}=require('../lib/device-registry');const {SimulationAdapter}=require('../lib/simulation');
 const {createBackup,validateBackup,summarizeBackup}=require('../lib/backup');
 const {AutomationEngine,compare,fromTemplate}=require('../lib/automations');
@@ -12,6 +12,7 @@ const {STEPS,migrateOnboardingState,advanceOnboarding,resumeOnboarding,resetOnbo
 const {validateLocale,localeCatalog,messagesFor}=require('../lib/i18n');
 const {TTL_MS,MAX_FAILED_ATTEMPTS,createSession,assertSessionCanStart,verifySession,publicSession}=require('../lib/admin-pairing');
 const {ROLE_PERMISSIONS,LocalSessionStore,can}=require('../lib/local-sessions');
+const {MAX_ATTEMPTS:createRecoveryAttempts,createRecoveryCode,verifyRecovery}=require('../lib/recovery-code');
 const demo=[{id:'hue-1',hueId:'1',integration:'hue',type:'light',name:'Testlicht',online:true,on:false,brightness:50}];
 async function adapter(fault=''){process.env.HUE_MODE='simulation';process.env.HUE_SIM_FAULT=fault;const dir=fs.mkdtempSync(path.join(os.tmpdir(),'systemone-test-'));const storage=new LocalStorage(dir);return {hue:new HueAdapter({storage,demoDevices:demo,diagnostics:new Diagnostics()}),dir}}
 (async()=>{let passed=0;async function test(name,fn){try{await fn();passed++;console.log(`✓ ${name}`)}catch(e){console.error(`✗ ${name}: ${e.message}`);process.exitCode=1}}
@@ -87,4 +88,9 @@ await test('Abgelaufene lokale Session wird abgewiesen',async()=>{let now=1000;c
 await test('Widerrufene lokale Session wird abgewiesen',async()=>{const store=new LocalSessionStore({now:()=>1000}),created=store.create('owner');store.revoke(created.session.id);assert.throws(()=>store.authenticate(created.token),e=>e.code==='SESSION_REVOKED')});
 await test('Rollenrechte werden bei jeder Session geprüft',async()=>{const store=new LocalSessionStore({now:()=>1000}),member=store.create('member');assert.throws(()=>store.authenticate(member.token,'system:write'),e=>e.code==='SESSION_FORBIDDEN');assert.equal(store.authenticate(member.token,'devices:control').role,'member')});
 await test('Session-Hashes überleben einen lokalen Neustart',async()=>{let saved=[];const first=new LocalSessionStore({now:()=>1000,onChange:value=>{saved=value}}),created=first.create('owner'),restored=new LocalSessionStore({now:()=>2000,initial:saved});assert.equal(restored.authenticate(created.token).role,'owner');assert.equal(JSON.stringify(saved).includes(created.token),false)});
-console.log(`\n${passed}/72 Tests bestanden`);if(passed!==72)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
+await test('Recovery verlangt physischen Zugriff plus separaten Code',async()=>{const created=createRecoveryCode(1000);assert.throws(()=>verifyRecovery(created.record,{code:created.code,physicalPresence:false},2000),e=>e.code==='RECOVERY_PHYSICAL_PRESENCE_REQUIRED');assert.equal(verifyRecovery(created.record,{code:created.code,physicalPresence:true},2000),true)});
+await test('Recovery-Code ist nur einmal verwendbar',async()=>{const created=createRecoveryCode(1000);verifyRecovery(created.record,{code:created.code,physicalPresence:true},2000);assert.throws(()=>verifyRecovery(created.record,{code:created.code,physicalPresence:true},3000),e=>e.code==='RECOVERY_CODE_UNAVAILABLE')});
+await test('Recovery wird nach fünf Fehlversuchen gesperrt',async()=>{const created=createRecoveryCode(1000);for(let i=0;i<createRecoveryAttempts-1;i++)assert.throws(()=>verifyRecovery(created.record,{code:'FALSCH',physicalPresence:true},2000));assert.throws(()=>verifyRecovery(created.record,{code:'FALSCH',physicalPresence:true},2000),e=>e.code==='RECOVERY_RATE_LIMITED')});
+await test('Recovery-Secrets werden rekursiv aus Diagnose redigiert',async()=>{const safe=sanitize({nested:{recoveryCode:'NEIN',token:'NEIN'},ok:'ja'});assert.equal(JSON.stringify(safe).includes('NEIN'),false);assert.equal(safe.ok,'ja')});
+await test('Recovery-Daten gelangen nicht in Backup',async()=>{const backup=createBackup({rooms:[],devices:[],onboarding:{},recovery:{code:'NEIN',hash:'NEIN'}});assert.equal(JSON.stringify(backup).includes('NEIN'),false)});
+console.log(`\n${passed}/77 Tests bestanden`);if(passed!==77)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});

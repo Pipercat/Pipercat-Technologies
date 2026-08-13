@@ -60,5 +60,5 @@ class Diagnostics {
   }
 }
 function check(name,ok,message){return {name,ok:Boolean(ok),message}}
-function sanitize(value){const clone={...value};for(const key of Object.keys(clone)){if(/password|username|token|secret|credential/i.test(key))clone[key]='[REDACTED]'}return clone}
-module.exports={Diagnostics,ERROR_CATALOG};
+function sanitize(value){if(Array.isArray(value))return value.map(sanitize);if(!value||typeof value!=='object')return value;const clone={};for(const [key,item] of Object.entries(value)){clone[key]=/password|username|token|secret|credential|recovery/i.test(key)?'[REDACTED]':sanitize(item)}return clone}
+module.exports={Diagnostics,ERROR_CATALOG,sanitize};
