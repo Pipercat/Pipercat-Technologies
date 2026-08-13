@@ -42,13 +42,15 @@ const { publicPilotPlan } = require('./lib/integration-pilots');
 const { API_VERSION, normalizeApiPath, responseEnvelope, publicContract } = require('./lib/api-contract');
 const { shouldServeAppShell, staticResponseHeaders } = require('./lib/http-routing');
 const { createGracefulShutdown } = require('./lib/process-lifecycle');
+const { validateRuntimeConfig } = require('./lib/runtime-config');
 
-const PORT = Number(process.env.PORT || 4170);
+const runtimeConfig=validateRuntimeConfig(process.env);
+const PORT = runtimeConfig.port;
 const PUBLIC_DIR = path.join(__dirname, 'web');
 const DOCS_DIR = path.join(__dirname, 'docs');
 const DATA_DIR = process.env.SYSTEMONE_DATA_DIR || path.join(__dirname, 'data');
 const diagnostics = new Diagnostics();
-const updatePublicKey=process.env.UPDATE_PUBLIC_KEY_PATH&&fs.existsSync(process.env.UPDATE_PUBLIC_KEY_PATH)?fs.readFileSync(process.env.UPDATE_PUBLIC_KEY_PATH,'utf8'):process.env.UPDATE_PUBLIC_KEY?.replace(/\\n/g,'\n')||null;
+const updatePublicKey=runtimeConfig.updatePublicKeyPath?fs.readFileSync(runtimeConfig.updatePublicKeyPath,'utf8'):process.env.UPDATE_PUBLIC_KEY?.replace(/\\n/g,'\n')||null;
 const storage = new LocalStorage(DATA_DIR, { onError: error => diagnostics.record(error.code, error.message, error.details) });
 const reconnect = new ReconnectController({ diagnostics });
 const cameras=new CameraModule({dataDir:DATA_DIR,enabled:process.env.CAMERA_MODULE_ENABLED==='true',mode:process.env.CAMERA_MODE||'simulation'});
@@ -405,7 +407,7 @@ const requestHandler = async (req, res) => {
   }
 };
 
-const tlsKeyPath=process.env.TLS_KEY_PATH,tlsCertPath=process.env.TLS_CERT_PATH,tlsEnabled=Boolean(tlsKeyPath&&tlsCertPath);let server;
+const tlsKeyPath=runtimeConfig.tlsKeyPath,tlsCertPath=runtimeConfig.tlsCertPath,tlsEnabled=runtimeConfig.tlsEnabled;let server;
 if(tlsEnabled){const identity=certificateStatus(path.dirname(tlsKeyPath));if(identity.provisioned&&identity.revoked)throw Object.assign(new Error('Widerrufene TLS-Geräteidentität darf nicht starten.'),{code:'TLS_IDENTITY_REVOKED'});server=https.createServer({key:fs.readFileSync(tlsKeyPath),cert:fs.readFileSync(tlsCertPath),minVersion:'TLSv1.2'},requestHandler)}else server=http.createServer(requestHandler);
 
 server.listen(PORT, '0.0.0.0', async () => {
