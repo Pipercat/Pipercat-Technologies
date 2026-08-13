@@ -274,6 +274,7 @@ HUE_SIM_FAULT=command npm start
 90–92. Stabile Geräteerkennung, Erkennung bereits hinzugefügter Kandidaten und Schutz vor doppelter Aufnahme
 93–98. Reconnect-Backoff, Erholung ohne Neustart, Zugang nach Adapterneustart, Paketverlust, Bridge-Wechsel und nutzerfreundliche Hue-Fehlermatrix
 99–101. Redigierter SSE-Gerätevertrag, Resync-Sequenz und langsames Fallback-Polling
+102–104. Strikte Kompatibilitätsklasse, bewusste Experimental-Aktivierung und verständliche Support-/Cloudhinweise
 
 ## Release-Audit
 
