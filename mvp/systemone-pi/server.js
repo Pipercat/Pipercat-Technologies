@@ -1,5 +1,4 @@
 const http = require('http');
-const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -46,6 +45,7 @@ const { EX_CONFIG, validateRuntimeConfig, formatConfigError } = require('./lib/r
 const { loadBuildIdentity, publicBuildIdentity } = require('./lib/build-identity');
 const { BACKUP_JSON_BYTES, UPDATE_JSON_BYTES, readJsonBody } = require('./lib/request-body');
 const { createStartupErrorHandler } = require('./lib/server-startup');
+const { createTlsServer, formatTlsStartupError } = require('./lib/tls-server');
 
 let runtimeConfig;
 try{runtimeConfig=validateRuntimeConfig(process.env)}catch(error){console.error(formatConfigError(error));process.exit(EX_CONFIG)}
@@ -407,7 +407,7 @@ const requestHandler = async (req, res) => {
 };
 
 const tlsKeyPath=runtimeConfig.tlsKeyPath,tlsCertPath=runtimeConfig.tlsCertPath,tlsEnabled=runtimeConfig.tlsEnabled;let server;
-if(tlsEnabled){const identity=certificateStatus(path.dirname(tlsKeyPath));if(identity.provisioned&&identity.revoked)throw Object.assign(new Error('Widerrufene TLS-Geräteidentität darf nicht starten.'),{code:'TLS_IDENTITY_REVOKED'});server=https.createServer({key:fs.readFileSync(tlsKeyPath),cert:fs.readFileSync(tlsCertPath),minVersion:'TLSv1.2'},requestHandler)}else server=http.createServer(requestHandler);
+try{server=tlsEnabled?createTlsServer({keyPath:tlsKeyPath,certPath:tlsCertPath,requestHandler}):http.createServer(requestHandler)}catch(error){console.error(formatTlsStartupError(error));process.exit(EX_CONFIG)}
 server.once('error',createStartupErrorHandler({port:PORT}));
 
 server.listen(PORT, '0.0.0.0', async () => {

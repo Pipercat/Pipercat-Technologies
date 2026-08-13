@@ -3,7 +3,7 @@
   "release": "systemone-pi-external-beta",
   "updatedAt": "2026-08-13",
   "gates": {
-    "automated": { "required": true, "passed": true, "evidence": ["npm run verify: Syntaxprüfung, aktueller + lokaler Git-Historien-Secret-Preflight und 263/263 Selftests am 2026-08-13", "Fresh npm ci aus versioniertem Lockfile-v3; CI verwendet ebenfalls npm ci", "Port-, Adress- und Bindfehler werden strukturiert ohne Stacktrace beendet und lösen keine systemd-Neustartschleife aus"] },
+    "automated": { "required": true, "passed": true, "evidence": ["npm run verify: Syntaxprüfung, aktueller + lokaler Git-Historien-Secret-Preflight und 267/267 Selftests am 2026-08-13", "Fresh npm ci aus versioniertem Lockfile-v3; CI verwendet ebenfalls npm ci", "Widerrufene, beschädigte oder nicht passende TLS-Identitäten blockieren strukturiert mit Exitcode 78 ohne HTTP-Fallback"] },
     "app": { "required": true, "passed": true, "evidence": ["Installierbare local-first PWA, API/Eventvertrag v1 und responsive App-Zustände automatisiert geprüft"] },
     "security": { "required": true, "passed": false, "evidence": ["Lokale Rollen, TLS, CSRF, Rate-Limit und Redaction implementiert", "npm audit --omit=dev am 2026-08-13: 0 bekannte Schwachstellen", "Aktueller Index und erreichbare lokale Git-Historie ohne Secretmuster", "GitHub-Provider-Scan und externes Security-Review offen"] },
     "hardware": { "required": true, "passed": false, "evidence": ["Hue-/Govee-Hardwarematrix und physischer Ziel-Pi-Lauf offen"] },
