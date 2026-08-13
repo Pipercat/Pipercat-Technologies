@@ -163,6 +163,9 @@ Das verbindliche Betriebs- und Einwilligungsmodell für Diagnose, Updates, künf
 - `POST /api/cameras`
 - `POST /api/cameras/:id/test`
 - `GET /api/cameras/:id/frame.svg` (hardwarefreie lokale Live-Simulation)
+- `GET /api/pihole` (optionales, Core-unabhängiges Modul)
+- `POST /api/pihole/refresh`
+- `POST /api/pihole/blocking`
 - `GET /api/setup`
 - `GET /api/onboarding`
 - `POST /api/onboarding/advance`

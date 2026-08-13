@@ -35,6 +35,7 @@ const { validateUpdatePackage, approveUpdate } = require('./lib/update-package')
 const { createSlotState, stageUpdate, activateStaged, reportBootHealth, recoverInterruptedBoot } = require('./lib/update-slots');
 const { createDiagnosticPackage, previewDiagnosticPackage } = require('./lib/diagnostic-export');
 const { CameraModule } = require('./lib/camera-module');
+const { PiHoleModule } = require('./lib/pihole-module');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -44,6 +45,7 @@ const updatePublicKey=process.env.UPDATE_PUBLIC_KEY_PATH&&fs.existsSync(process.
 const storage = new LocalStorage(DATA_DIR, { onError: error => diagnostics.record(error.code, error.message, error.details) });
 const reconnect = new ReconnectController({ diagnostics });
 const cameras=new CameraModule({dataDir:DATA_DIR,enabled:process.env.CAMERA_MODULE_ENABLED==='true',mode:process.env.CAMERA_MODE||'simulation'});
+const pihole=new PiHoleModule({enabled:process.env.PIHOLE_MODULE_ENABLED==='true',mode:process.env.PIHOLE_MODE||'simulation',baseUrl:process.env.PIHOLE_BASE_URL,token:process.env.PIHOLE_API_TOKEN});
 const backupManager=new BackupManager({localDir:path.join(DATA_DIR,'backups'),retentionCount:process.env.BACKUP_RETENTION_COUNT||7,retentionDays:process.env.BACKUP_RETENTION_DAYS||30,allowedRoots:String(process.env.SYSTEMONE_EXPORT_ROOTS||'').split(path.delimiter).filter(Boolean)});
 let lastBackupRestoreTest=null;
 
@@ -269,6 +271,9 @@ const requestHandler = async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/diagnostics/export/preview') {if(state.onboarding.adminPaired)requireSession(req,'system:read');const pkg=createDiagnosticPackage(diagnostics.report(state,hue),{includeEvents:url.searchParams.get('events')!=='0'});return json(res,200,previewDiagnosticPackage(pkg));}
     if (req.method === 'GET' && url.pathname === '/api/diagnostics/export') {if(state.onboarding.adminPaired)requireSession(req,'system:read');return json(res,200,createDiagnosticPackage(diagnostics.report(state,hue),{includeEvents:url.searchParams.get('events')!=='0'}));}
     if (req.method === 'GET' && url.pathname === '/api/cameras') return json(res,200,cameras.status());
+    if (req.method === 'GET' && url.pathname === '/api/pihole') return json(res,200,pihole.publicStatus());
+    if (req.method === 'POST' && url.pathname === '/api/pihole/refresh') return json(res,200,await pihole.refresh());
+    if (req.method === 'POST' && url.pathname === '/api/pihole/blocking') {const body=await readBody(req);return json(res,200,await pihole.setBlocking(body.enabled));}
     if (req.method === 'POST' && url.pathname === '/api/cameras') return json(res,201,cameras.add(await readBody(req)));
     const cameraTestMatch=url.pathname.match(/^\/api\/cameras\/([^/]+)\/test$/);if(cameraTestMatch&&req.method==='POST')return json(res,200,await cameras.test(cameraTestMatch[1]));
     const cameraFrameMatch=url.pathname.match(/^\/api\/cameras\/([^/]+)\/frame\.svg$/);if(cameraFrameMatch&&req.method==='GET'){const svg=cameras.frame(cameraFrameMatch[1]);res.writeHead(200,{...securityHeaders(),'Content-Type':'image/svg+xml; charset=utf-8','Cache-Control':'no-store'});return res.end(svg)}
