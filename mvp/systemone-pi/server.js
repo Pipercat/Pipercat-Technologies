@@ -40,6 +40,7 @@ const { createYouDoModules } = require('./lib/module-registry');
 const { GoveeAdapter, LOCAL_MODEL_ALLOWLIST, CLOUD_ONLY_EXCLUDED } = require('./lib/govee');
 const { publicPilotPlan } = require('./lib/integration-pilots');
 const { API_VERSION, normalizeApiPath, responseEnvelope, publicContract } = require('./lib/api-contract');
+const { shouldServeAppShell } = require('./lib/http-routing');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -392,7 +393,7 @@ const requestHandler = async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/rooms') return json(res, 200, state.rooms);
     if (['GET','HEAD'].includes(req.method) && url.pathname.startsWith('/docs/') && servePublicDoc(req,res))return;
     if (['GET','HEAD'].includes(req.method) && !url.pathname.startsWith('/api/') && serveStatic(req, res)) return;
-    if (['GET','HEAD'].includes(req.method) && !url.pathname.startsWith('/api/')) { req.url = '/index.html'; if (serveStatic(req, res)) return; }
+    if (['GET','HEAD'].includes(req.method) && shouldServeAppShell(url.pathname,req.headers.accept)) { req.url = '/index.html'; if (serveStatic(req, res)) return; }
     return json(res, 404, { code: 'NOT_FOUND', message: 'Route nicht gefunden.' });
   } catch (error) {
     res._auditError={code:error.code||'INTERNAL_ERROR',message:error.message};

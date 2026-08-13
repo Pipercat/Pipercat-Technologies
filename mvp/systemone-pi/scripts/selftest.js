@@ -30,6 +30,7 @@ const {GoveeAdapter,LOCAL_MODEL_ALLOWLIST,CLOUD_ONLY_EXCLUDED,assertLocalModel}=
 const {publicPilotPlan,validatePilotPlan}=require('../lib/integration-pilots');
 const {evaluatePilotReport,publicPilotSummary}=require('../lib/pilot-report');
 const {API_VERSION,normalizeApiPath,responseEnvelope,validateEnvelope,publicContract}=require('../lib/api-contract');
+const {acceptsHtml,shouldServeAppShell}=require('../lib/http-routing');
 const demo=[{id:'hue-1',hueId:'1',integration:'hue',type:'light',name:'Testlicht',online:true,on:false,brightness:50}];
 async function adapter(fault=''){process.env.HUE_MODE='simulation';process.env.HUE_SIM_FAULT=fault;const dir=fs.mkdtempSync(path.join(os.tmpdir(),'systemone-test-'));const storage=new LocalStorage(dir);return {hue:new HueAdapter({storage,demoDevices:demo,diagnostics:new Diagnostics()}),dir}}
 (async()=>{let passed=0;async function test(name,fn){try{await fn();passed++;console.log(`✓ ${name}`)}catch(e){console.error(`✗ ${name}: ${e.message}`);process.exitCode=1}}
@@ -238,4 +239,6 @@ await test('Familienpilot dokumentiert Abbruch Support und externe Evidenz',asyn
 await test('Beta-Audit besitzt Rechts- und Unternehmensfreigabe als harte Gates',async()=>{const evidence=require('../release-evidence.json'),report=evaluateReleaseEvidence(evidence);for(const id of ['legalTax','corporateApproval']){assert.equal(evidence.gates[id].passed,false);assert.ok(report.results.some(item=>item.id===id))}});
 await test('Beta-Dossier dokumentiert Nachweise und harte No-Go-Regel',async()=>{const doc=fs.readFileSync(path.join(__dirname,'../docs/external-beta-release-dossier.md'),'utf8');for(const term of ['Rechts-/Steuerprüfung','Unternehmensverantwortliche','Audit `10/10`','Harte No-Go-Regel','P0/P1'])assert.ok(doc.includes(term))});
 await test('PWA und lokale Dokumentation unterstützen HTTP HEAD',async()=>{const source=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');assert.match(source,/\['GET','HEAD'\]\.includes\(req\.method\).*serveStatic/);assert.match(source,/req\.method==='HEAD'/);assert.match(source,/'Content-Length'/)});
-console.log(`\n${passed}/205 Tests bestanden`);if(passed!==205)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
+await test('SPA-Fallback akzeptiert ausschließlich Browsernavigation',async()=>{assert.equal(acceptsHtml('text/html,application/xhtml+xml'),true);assert.equal(acceptsHtml('*/*'),false);assert.equal(shouldServeAppShell('/rooms','text/html'),true)});
+await test('Fehlende Assets und reservierte Routen erhalten keine App-Shell',async()=>{for(const route of ['/missing.js','/icons/app.png','/api/unknown','/docs/missing.md'])assert.equal(shouldServeAppShell(route,'text/html'),false);assert.equal(shouldServeAppShell('/rooms','application/json'),false)});
+console.log(`\n${passed}/207 Tests bestanden`);if(passed!==207)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
