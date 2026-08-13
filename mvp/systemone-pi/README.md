@@ -153,9 +153,12 @@ HUE_SIM_FAULT=command npm start
 
 ## API v0.4.0
 
+Der stabile Mobile-Vertrag ist als **API v1** unter `/api/v1/*` verfügbar. Die bisherigen `/api/*`-Pfade bleiben während der Migration kompatible Aliase. Jede JSON-Antwort enthält `apiVersion: "1"` und den Header `X-SystemONE-API-Version: 1`; Details stehen in [`docs/mobile-api-contract-v1.md`](docs/mobile-api-contract-v1.md).
+
 Das verbindliche Betriebs- und Einwilligungsmodell für Diagnose, Updates, künftige Fernwartung und A/B-Rollback steht in [`docs/remote-maintenance-policy.md`](docs/remote-maintenance-policy.md). Fernwartung bleibt im MVP standardmäßig deaktiviert.
 
 - `GET /api/health`
+- `GET /api/contract` beziehungsweise `GET /api/v1/contract`
 - `GET /api/diagnostics`
 - `GET /api/diagnostics/export/preview` (Kategorien, Ausschlüsse und Grenzen vor Export)
 - `GET /api/diagnostics/export` (versioniertes, redigiertes Supportpaket; max. 256 KiB)

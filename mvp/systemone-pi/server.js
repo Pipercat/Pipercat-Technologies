@@ -39,6 +39,7 @@ const { PiHoleModule } = require('./lib/pihole-module');
 const { createYouDoModules } = require('./lib/module-registry');
 const { GoveeAdapter, LOCAL_MODEL_ALLOWLIST, CLOUD_ONLY_EXCLUDED } = require('./lib/govee');
 const { publicPilotPlan } = require('./lib/integration-pilots');
+const { API_VERSION, normalizeApiPath, responseEnvelope, publicContract } = require('./lib/api-contract');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -146,8 +147,8 @@ function persist() {
   storage.saveState(safeState);
 }
 function json(res, status, data, headers = {}) {
-  res.writeHead(status, { ...securityHeaders(), 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers });
-  res.end(JSON.stringify({ success: status < 400, data: status < 400 ? data : null, error: status >= 400 ? data : null }));
+  res.writeHead(status, { ...securityHeaders(), 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store','X-SystemONE-API-Version':API_VERSION, ...headers });
+  res.end(JSON.stringify(responseEnvelope(status,data)));
 }
 function sessionToken(req, cookieName = 'systemone_session') { const cookie = String(req.headers.cookie || '').split(';').map(item => item.trim()).find(item => item.startsWith(`${cookieName}=`)); return cookie ? decodeURIComponent(cookie.split('=').slice(1).join('=')) : String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''); }
 function bearerToken(req) { return String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''); }
@@ -259,6 +260,7 @@ function setupStatus() {
 const requestHandler = async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    url.pathname=normalizeApiPath(url.pathname);
     const clientKey=String(req.socket.remoteAddress||'local'),mutating=!['GET','HEAD','OPTIONS'].includes(req.method);let auditActor=null;if(mutating)res.once('finish',()=>{auditLog.record({method:req.method,path:url.pathname,status:res.statusCode,outcome:res.statusCode<400?'success':'failure',actor:auditActor,error:res._auditError});state.auditLog=auditLog.list();persist()});validateHost(req);validateWriteRequest(req);
     const pairingBootstrap = req.method === 'POST' && ['/api/onboarding/pair-admin/session','/api/onboarding/pair-admin/complete','/api/display/session'].includes(url.pathname);
     if(mutating){writeLimiter.consume(clientKey);if(url.pathname==='/api/onboarding/pair-admin/session')pairingLimiter.consume(clientKey);if(['/api/onboarding/pair-admin/complete','/api/display/session'].includes(url.pathname))loginLimiter.consume(clientKey)}
@@ -272,6 +274,7 @@ const requestHandler = async (req, res) => {
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, diagnostics.health(state, hue));
+    if (req.method === 'GET' && url.pathname === '/api/contract') return json(res,200,publicContract());
     if (req.method === 'GET' && url.pathname === '/api/diagnostics') return json(res, 200, { ...diagnostics.report(state, hue), reconnect: reconnect.snapshot() });
     if (req.method === 'GET' && url.pathname === '/api/diagnostics/export/preview') {if(state.onboarding.adminPaired)requireSession(req,'system:read');const pkg=createDiagnosticPackage(diagnostics.report(state,hue),{includeEvents:url.searchParams.get('events')!=='0'});return json(res,200,previewDiagnosticPackage(pkg));}
     if (req.method === 'GET' && url.pathname === '/api/diagnostics/export') {if(state.onboarding.adminPaired)requireSession(req,'system:read');return json(res,200,createDiagnosticPackage(diagnostics.report(state,hue),{includeEvents:url.searchParams.get('events')!=='0'}));}

@@ -28,6 +28,7 @@ const {PiHoleModule,validateBaseUrl}=require('../lib/pihole-module');
 const {ModuleRegistry,validateManifest,createYouDoModules}=require('../lib/module-registry');
 const {GoveeAdapter,LOCAL_MODEL_ALLOWLIST,CLOUD_ONLY_EXCLUDED,assertLocalModel}=require('../lib/govee');
 const {publicPilotPlan,validatePilotPlan}=require('../lib/integration-pilots');
+const {API_VERSION,normalizeApiPath,responseEnvelope,validateEnvelope,publicContract}=require('../lib/api-contract');
 const demo=[{id:'hue-1',hueId:'1',integration:'hue',type:'light',name:'Testlicht',online:true,on:false,brightness:50}];
 async function adapter(fault=''){process.env.HUE_MODE='simulation';process.env.HUE_SIM_FAULT=fault;const dir=fs.mkdtempSync(path.join(os.tmpdir(),'systemone-test-'));const storage=new LocalStorage(dir);return {hue:new HueAdapter({storage,demoDevices:demo,diagnostics:new Diagnostics()}),dir}}
 (async()=>{let passed=0;async function test(name,fn){try{await fn();passed++;console.log(`✓ ${name}`)}catch(e){console.error(`✗ ${name}: ${e.message}`);process.exitCode=1}}
@@ -205,4 +206,9 @@ await test('Matter Shelly und Zigbee bleiben ohne Testmatrix unsupported',async(
 await test('Integrationsreihenfolge bleibt Hue Govee Matter Shelly Zigbee',async()=>{assert.deepEqual(publicPilotPlan().order,['hue','govee','matter','shelly','zigbee'])});
 await test('Jeder Pilot kapselt Herstellerdaten in eigenem Adapter',async()=>{for(const item of Object.values(publicPilotPlan().pilots))assert.match(item.adapterBoundary,/Adapter$/)});
 await test('Jeder Pilot besitzt Sicherheits- und Abbruchkriterien',async()=>{for(const item of Object.values(publicPilotPlan().pilots)){assert.ok(item.security.length>=3);assert.ok(item.abort.length>=3)}});
-console.log(`\n${passed}/174 Tests bestanden`);if(passed!==174)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
+await test('API v1 besitzt stabilen versionierten Präfix und Header',async()=>{assert.equal(API_VERSION,'1');assert.equal(normalizeApiPath('/api/v1/devices'),'/api/devices');assert.equal(normalizeApiPath('/api/devices'),'/api/devices');const source=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');assert.match(source,/X-SystemONE-API-Version/)});
+await test('API-v1-Erfolg und Fehler folgen demselben Envelope',async()=>{const ok=responseEnvelope(200,{id:'x'}),bad=responseEnvelope(400,{code:'INVALID',message:'Ungültig'});assert.equal(validateEnvelope(ok,200),true);assert.equal(validateEnvelope(bad,400),true);assert.throws(()=>validateEnvelope({success:false,error:{}},400),e=>e.code==='API_CONTRACT_INVALID')});
+await test('Mobiler Authvertrag beschreibt Rollen Ablauf und Schreibschutz',async()=>{const contract=publicContract();assert.equal(contract.auth.expiryHours,12);assert.ok(contract.auth.roles.includes('display'));assert.ok(contract.auth.writeProtection.includes('Origin validation for cookie writes'))});
+await test('Reconnectvertrag versioniert SSE Resync und Fallback',async()=>{const reconnect=publicContract().reconnect;assert.equal(reconnect.eventSchemaVersion,1);assert.equal(reconnect.retryMs,5000);assert.equal(reconnect.fallbackPollingMs,15000);assert.ok(reconnect.eventTypes.includes('devices.resync'))});
+await test('Eventvertrag bleibt zu API-v1 additiv kompatibel',async()=>{const event=normalizedDeviceEvent('device.updated',{id:'x',profile:'light',name:'X',capabilities:{power:true}},9,new Date('2026-08-13T10:00:00Z'));assert.equal(event.schemaVersion,publicContract().reconnect.eventSchemaVersion);assert.equal(event.sequence,9);assert.equal(event.device.capabilities.power,true)});
+console.log(`\n${passed}/179 Tests bestanden`);if(passed!==179)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
