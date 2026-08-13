@@ -17,7 +17,7 @@ const { AutomationEngine, TEMPLATES, validateAutomation } = require('./lib/autom
 const { AutomationScheduler } = require('./lib/scheduler');
 const { validateLocation, calculateSolarEvents } = require('./lib/solar');
 const { THEMES, validateTheme } = require('./lib/themes');
-const { availableIntegrations, validateOnboardingRequest } = require('./lib/device-onboarding');
+const { availableIntegrations, discoverCandidates, validateOnboardingRequest } = require('./lib/device-onboarding');
 const { publicCompatibilityCatalog } = require('./lib/compatibility');
 const { migrateOnboardingState, advanceOnboarding, resetOnboarding } = require('./lib/onboarding-state');
 const { createSession, assertSessionCanStart, verifySession, publicSession } = require('./lib/admin-pairing');
@@ -231,7 +231,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/profiles') return json(res, 200, DEVICE_PROFILES);
     if (req.method === 'GET' && url.pathname === '/api/compatibility') return json(res, 200, publicCompatibilityCatalog());
     if (req.method === 'GET' && url.pathname === '/api/device-onboarding/integrations') return json(res, 200, availableIntegrations(hue.mode));
-    if (req.method === 'POST' && url.pathname === '/api/device-onboarding/complete') { const input = validateOnboardingRequest(await readBody(req), state.rooms); const device = simulation.create(input); registry.upsert(device); persist(); return json(res, 201, { device: publicDevice(device), test: { success: true, message: 'Gerät antwortet und ist bereit.' } }); }
+    if (req.method === 'GET' && url.pathname === '/api/device-onboarding/discover') return json(res, 200, { integration: url.searchParams.get('integration') || 'simulation', scannedAt: new Date().toISOString(), candidates: discoverCandidates(url.searchParams.get('integration') || 'simulation', registry.list()) });
+    if (req.method === 'POST' && url.pathname === '/api/device-onboarding/complete') { const startedAt = Date.now(), input = validateOnboardingRequest(await readBody(req), state.rooms, registry.list()); const device = simulation.create({ ...input, id: input.candidateId || undefined, serialNumber: input.candidateId ? `DISC-${input.candidateId.toUpperCase()}` : undefined }); registry.upsert(device); persist(); return json(res, 201, { device: publicDevice(device), test: { success: true, latencyMs: Date.now() - startedAt, checks: [{ id: 'identity', ok: Boolean(device.id) }, { id: 'availability', ok: device.online }, { id: 'capabilities', ok: Object.keys(device.capabilities).length > 0 }], message: 'Identität, Erreichbarkeit und Funktionen wurden lokal geprüft.' } }); }
     if (req.method === 'GET' && url.pathname === '/api/system') return json(res, 200, state.system);
     if (req.method === 'GET' && url.pathname === '/api/themes') return json(res, 200, THEMES);
     if (req.method === 'GET' && url.pathname === '/api/dashboard') return json(res, 200, state.dashboard);

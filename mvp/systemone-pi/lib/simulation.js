@@ -13,9 +13,9 @@ class SimulationAdapter extends DeviceAdapter {
   async discover() { return { id: 'systemone-simulation', name: 'SystemONE Simulation', simulated: true }; }
   async pair() { return { paired: true, simulated: true }; }
   async listDevices(devices = []) { return devices.filter(device => device.integration === this.id); }
-  create({ profile, name, roomId }) {
+  create({ profile, name, roomId, id, manufacturer = 'SystemONE', model, serialNumber }) {
     if (!PROFILE_DEFINITIONS[profile]) throw Object.assign(new Error('Unbekanntes Geräteprofil.'), { code: 'DEVICE_PROFILE_INVALID' });
-    return createDevice({ id: `sim-${profile}-${crypto.randomBytes(4).toString('hex')}`, integration: this.id, manufacturer: 'SystemONE', model: `Virtual ${profile}`, profile, name: String(name || PROFILE_DEFINITIONS[profile].label), roomId, compatibility: 'experimental', capabilities: DEFAULTS[profile], information: { firmwareVersion: 'sim-1.0', serialNumber: `SIM-${crypto.randomBytes(3).toString('hex').toUpperCase()}`, hardwareVersion: 'virtual' } });
+    return createDevice({ id: id || `sim-${profile}-${crypto.randomBytes(4).toString('hex')}`, integration: this.id, manufacturer, model: model || `Virtual ${profile}`, profile, name: String(name || PROFILE_DEFINITIONS[profile].label), roomId, compatibility: 'experimental', capabilities: DEFAULTS[profile], information: { firmwareVersion: 'sim-1.0', serialNumber: serialNumber || `SIM-${crypto.randomBytes(3).toString('hex').toUpperCase()}`, hardwareVersion: 'virtual' } });
   }
   async applyCapabilities(device, patch) { const values = validateCapabilities(device.profile, patch, { partial: true }); if (device.profile === 'thermostat' && Number.isFinite(values.targetTemperature)) values.heating = values.targetTemperature > device.capabilities.temperature; if (device.profile === 'switch' && typeof values.power === 'boolean') values.powerConsumption = values.power ? 42.5 : 0; return values; }
   async applyAction(device, action) { if (device.profile !== 'blind' || !['open','close','stop'].includes(action)) throw Object.assign(new Error('Geräteaktion wird nicht unterstützt.'), { code: 'DEVICE_ACTION_INVALID' }); if (action === 'stop') return {}; return { position: action === 'open' ? 100 : 0 }; }

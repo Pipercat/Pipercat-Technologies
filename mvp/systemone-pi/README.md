@@ -197,6 +197,7 @@ HUE_SIM_FAULT=command npm start
 - `PATCH /api/dashboard`
 - `POST /api/dashboard/reset`
 - `GET /api/device-onboarding/integrations`
+- `GET /api/device-onboarding/discover?integration=simulation`
 - `POST /api/device-onboarding/complete`
 
 ## Aktuelle Core-Selftests
@@ -269,6 +270,7 @@ HUE_SIM_FAULT=command npm start
 80–81. Wanddisplay-Datenprojektion enthält nur freigegebene Inhalte und die Display-Rolle kann niemals schreiben
 82–85. Dashboard-Layout validiert Reihenfolge und Größe, verhindert leere/duplizierte Zustände und migriert sicher auf Standard
 86–89. Dokumentbasis, asynchrone Live-Status, Dialog-/Feldnamen sowie Fokus-, Touch-, Kontrast- und Motion-Regeln
+90–92. Stabile Geräteerkennung, Erkennung bereits hinzugefügter Kandidaten und Schutz vor doppelter Aufnahme
 
 ## Release-Audit
 
