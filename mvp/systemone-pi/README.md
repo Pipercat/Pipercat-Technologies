@@ -159,6 +159,10 @@ Das verbindliche Betriebs- und Einwilligungsmodell für Diagnose, Updates, künf
 - `GET /api/diagnostics`
 - `GET /api/diagnostics/export/preview` (Kategorien, Ausschlüsse und Grenzen vor Export)
 - `GET /api/diagnostics/export` (versioniertes, redigiertes Supportpaket; max. 256 KiB)
+- `GET /api/cameras` (optionales Modul; standardmäßig deaktiviert)
+- `POST /api/cameras`
+- `POST /api/cameras/:id/test`
+- `GET /api/cameras/:id/frame.svg` (hardwarefreie lokale Live-Simulation)
 - `GET /api/setup`
 - `GET /api/onboarding`
 - `POST /api/onboarding/advance`
