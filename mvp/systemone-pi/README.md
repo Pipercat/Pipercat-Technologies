@@ -67,7 +67,7 @@ Local-first Core mit normalisiertem Device Model. Standardmäßig läuft alles i
 - gemeinsame Design-Tokens als Grundlage für Clear, Midnight, Compact und Living
 - persistente Theme-Auswahl mit produktivem Clear und Midnight
 - Midnight mit dunkelblauem Verlauf, transparenten Rahmen und Display-Kontrast
-- Compact ist als informationsdichte, touchfreundliche Variante verfügbar; Living bleibt bis zur Fertigstellung gesperrt
+- Compact ist als informationsdichte Variante verfügbar; Living nutzt dieselben Funktionen in einer weichen, kontraststarken Wohnraumgestaltung
 - mobile schwebende Navigation für Home, Räume, Abläufe und Mehr
 
 ## Geführter Geräteassistent
@@ -256,6 +256,7 @@ HUE_SIM_FAULT=command npm start
 67–72. Rollenmatrix, Secret-freie Sessions, Ablauf, Widerruf, Rechteprüfung und Neustart-Persistenz
 73–77. Physische Recovery-Pflicht, Einmalcode, Fehlversuchssperre sowie Diagnose- und Backup-Redaktion
 78. Compact-Theme hält responsive Dichte und mindestens 44-Pixel-Touchziele ein
+79. Living-Theme hält WCAG-AA-Textkontrast und mindestens 44-Pixel-Touchziele ein
 
 ## Release-Audit
 
