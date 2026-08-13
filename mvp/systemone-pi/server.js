@@ -44,6 +44,7 @@ const initialState = {
   rooms: [{ id: 'living', name: 'Wohnzimmer' }, { id: 'office', name: 'Büro' }, { id: 'bedroom', name: 'Schlafzimmer' }],
   devices: [],
   automations: [],
+  automationHistory: [],
   dashboard: defaultDashboard()
 };
 
@@ -57,6 +58,7 @@ const state = {
   rooms: Array.isArray(persisted.rooms) ? persisted.rooms : initialState.rooms,
   devices: Array.isArray(persisted.devices) ? persisted.devices.map(migrateLegacyDevice) : [],
   automations: Array.isArray(persisted.automations) ? persisted.automations : [],
+  automationHistory: Array.isArray(persisted.automationHistory) ? persisted.automationHistory.slice(0,100) : [],
   dashboard: migrateDashboard(persisted.dashboard)
 };
 state.onboarding.flow = migrateOnboardingState(state.onboarding);
@@ -93,7 +95,7 @@ async function applyDeviceCapabilities(deviceId, capabilityPatch) {
 }
 
 const validPersistedAutomations = state.automations.flatMap(value => { try { return [validateAutomation(value, registry)]; } catch (error) { diagnostics.record('AUTOMATION_INVALID', 'Gespeicherte Automation wurde übersprungen.', { cause: error.message }); return []; } });
-const automationEngine = new AutomationEngine({ registry, automations: validPersistedAutomations, executeAction: action => applyDeviceCapabilities(action.deviceId, action.capabilities) });
+const automationEngine = new AutomationEngine({ registry, automations: validPersistedAutomations, history: state.automationHistory, executeAction: action => applyDeviceCapabilities(action.deviceId, action.capabilities) });
 const localSessions = new LocalSessionStore({ initial: storage.loadSessions(), onChange: sessions => storage.saveSessions(sessions) });
 const scheduler = new AutomationScheduler({ engine: automationEngine, solarProvider: async date => state.home.location ? calculateSolarEvents(date, state.home.location) : null });
 state.automations = automationEngine.list();
@@ -103,6 +105,7 @@ registry.on('device.added', device => { syncRegistryState(); sendDeviceEvent('de
 registry.on('device.updated', device => { syncRegistryState(); sendDeviceEvent('device.updated', device); });
 registry.on('registry.changed', () => { syncRegistryState(); sendDeviceEvent('devices.resync'); });
 automationEngine.on('changed', automations => { state.automations = automations; });
+automationEngine.on('history.changed', history => { state.automationHistory = history; persist(); });
 automationEngine.on('executed', automation => { if (automation.lastError) diagnostics.record('AUTOMATION_ACTION_FAILED', automation.lastError.message, { automationId: automation.id }); });
 
 function updateReconnectState() { state.integrations.hue.reconnect = reconnect.snapshot(); }
@@ -265,6 +268,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/automations/templates') return json(res, 200, TEMPLATES);
     if (req.method === 'GET' && url.pathname === '/api/automations/scheduler') return json(res, 200, scheduler.status());
     if (req.method === 'GET' && url.pathname === '/api/automations') return json(res, 200, automationEngine.list());
+    if (req.method === 'GET' && url.pathname === '/api/automations/history') return json(res, 200, automationEngine.listHistory());
+    const retryMatch = url.pathname.match(/^\/api\/automations\/history\/([^/]+)\/retry$/);
+    if (retryMatch && req.method === 'POST') return json(res, 200, await automationEngine.retry(retryMatch[1]));
     if (req.method === 'POST' && url.pathname === '/api/automations') { const item = automationEngine.add(await readBody(req)); persist(); return json(res, 201, item); }
     if (req.method === 'POST' && url.pathname === '/api/automations/from-template') { const body = await readBody(req); const item = automationEngine.addFromTemplate(body.templateId, body); persist(); return json(res, 201, item); }
     const automationMatch = url.pathname.match(/^\/api\/automations\/([^/]+)$/);

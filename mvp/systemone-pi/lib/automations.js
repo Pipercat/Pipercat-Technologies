@@ -1,11 +1,13 @@
 const crypto = require('crypto');
 const { EventEmitter } = require('events');
+const { sanitize } = require('./diagnostics');
 
 const OPERATORS = new Set(['equals', 'notEquals', 'above', 'below']);
 
 function automationError(message, details = {}) {
   return Object.assign(new Error(message), { code: 'AUTOMATION_INVALID', details });
 }
+function redactErrorMessage(value) { return String(value || 'Aktion fehlgeschlagen.').replace(/(token|secret|username|password|credential)\s*[=:]\s*[^\s,;]+/gi,'$1=[REDACTED]').replace(/\/api\/[^/\s]+\//g,'/api/[REDACTED]/'); }
 
 function compare(actual, operator, expected) {
   if (operator === 'equals') return actual === expected;
@@ -73,11 +75,16 @@ function builderOptions(registry) {
 }
 
 class AutomationEngine extends EventEmitter {
-  constructor({ registry, executeAction, automations = [] }) {
+  constructor({ registry, executeAction, automations = [], history = [], historyLimit = 100 }) {
     super(); this.registry = registry; this.executeAction = executeAction; this.running = new Set();
     this.automations = automations.map(value => validateAutomation(value, registry));
+    this.historyLimit = historyLimit; this.history = Array.isArray(history) ? history.slice(0, historyLimit) : [];
   }
   list() { return this.automations.map(value => structuredClone(value)); }
+  listHistory() { return structuredClone(this.history); }
+  recordExecution(automation, result) { const entry = { id: `execution-${crypto.randomBytes(6).toString('hex')}`, automationId: automation.id, automationName: automation.name, timestamp: new Date().toISOString(), ...result }; this.history.unshift(entry); this.history = this.history.slice(0, this.historyLimit); this.emit('history.changed', this.listHistory()); return entry; }
+  async runActions(automation, { startIndex = 0, source = 'trigger', retryOf = null } = {}) { let completedActionCount = startIndex; try { for (let index=startIndex;index<automation.actions.length;index++) { await this.executeAction(automation.actions[index]); completedActionCount=index+1; } automation.lastRun=new Date().toISOString();automation.lastError=null;return this.recordExecution(automation,{success:true,source,retryOf,completedActionCount,totalActions:automation.actions.length}); } catch(error) { automation.lastError={code:error.code||'AUTOMATION_ACTION_FAILED',message:redactErrorMessage(error.message),timestamp:new Date().toISOString()};return this.recordExecution(automation,{success:false,source,retryOf,completedActionCount,totalActions:automation.actions.length,error:sanitize(automation.lastError)}); } }
+  async retry(executionId) { const previous=this.history.find(item=>item.id===executionId);if(!previous||previous.success)throw automationError('Nur eine fehlgeschlagene Ausführung kann wiederholt werden.');if(previous.retriedBy)throw automationError('Diese Ausführung wurde bereits wiederholt.');const automation=this.automations.find(item=>item.id===previous.automationId);if(!automation)throw automationError('Automation für die Wiederholung wurde nicht gefunden.');if(this.running.has(automation.id))throw automationError('Automation wird bereits ausgeführt.');this.running.add(automation.id);try{const result=await this.runActions(automation,{startIndex:previous.completedActionCount,source:'retry',retryOf:previous.id});previous.retriedBy=result.id;this.emit('history.changed',this.listHistory());this.emit('changed',this.list());return structuredClone(result)}finally{this.running.delete(automation.id)}}
   add(input) { const automation = validateAutomation(input, this.registry); this.automations.push(automation); this.emit('changed', this.list()); return structuredClone(automation); }
   addFromTemplate(id, input) {
     const draft = fromTemplate(id, input, this.registry);
@@ -99,13 +106,8 @@ class AutomationEngine extends EventEmitter {
     for (const automation of this.automations) {
       if (!automation.enabled || automation.trigger.type !== 'device' || automation.trigger.deviceId !== deviceId || this.running.has(automation.id) || !this.matches(automation.trigger) || !automation.conditions.every(value => this.matches(value))) continue;
       this.running.add(automation.id);
-      try {
-        for (const action of automation.actions) await this.executeAction(action);
-        automation.lastRun = new Date().toISOString(); automation.lastError = null; results.push({ id: automation.id, success: true });
-      } catch (error) {
-        automation.lastError = { code: error.code || 'AUTOMATION_ACTION_FAILED', message: error.message, timestamp: new Date().toISOString() };
-        results.push({ id: automation.id, success: false, error: automation.lastError });
-      } finally { this.running.delete(automation.id); this.emit('executed', structuredClone(automation)); }
+      try { const execution=await this.runActions(automation);results.push({id:automation.id,success:execution.success,error:execution.error}); }
+      finally { this.running.delete(automation.id); this.emit('executed', structuredClone(automation)); }
     }
     if (results.length) this.emit('changed', this.list());
     return results;
@@ -114,13 +116,8 @@ class AutomationEngine extends EventEmitter {
     const automation = this.automations.find(value => value.id === id);
     if (!automation || !automation.enabled || this.running.has(id) || !automation.conditions.every(value => this.matches(value))) return { id, success: false, skipped: true };
     this.running.add(id);
-    try {
-      for (const action of automation.actions) await this.executeAction(action);
-      automation.lastRun = new Date().toISOString(); automation.lastError = null; return { id, success: true };
-    } catch (error) {
-      automation.lastError = { code: error.code || 'AUTOMATION_ACTION_FAILED', message: error.message, timestamp: new Date().toISOString() };
-      return { id, success: false, error: automation.lastError };
-    } finally { this.running.delete(id); this.emit('executed', structuredClone(automation)); this.emit('changed', this.list()); }
+    try { const execution=await this.runActions(automation,{source:'scheduler'});return {id,success:execution.success,error:execution.error}; }
+    finally { this.running.delete(id); this.emit('executed', structuredClone(automation)); this.emit('changed', this.list()); }
   }
 }
 

@@ -277,6 +277,7 @@ HUE_SIM_FAULT=command npm start
 102–104. Strikte Kompatibilitätsklasse, bewusste Experimental-Aktivierung und verständliche Support-/Cloudhinweise
 105–107. Deterministische Aktionsketten, geführte Feld-/Operatorauswahl und verständliche Bedingungsvalidierung
 108–110. Sonnenereignis-/Offsetvalidierung, lokaler Tageswechsel und cloudfreie UI-Erklärung
+111–114. Verlaufsrotation, partieller idempotenter Retry, Einmalwiederholung und Fehlerredaktion
 
 ## Release-Audit
 
