@@ -158,6 +158,7 @@ class HueAdapter extends DeviceAdapter {
     if (!this.bridge || !this.username) return [];
     if (this.mode !== 'real') {
       if (this.simFault === 'timeout') throw typedError('HUE_TIMEOUT', 'Simulation: Bridge-Zeitüberschreitung.');
+      if (this.simFault === 'network') throw typedError('HUE_NETWORK_ERROR', 'Simulation: Paketverlust zur Bridge.');
       if (this.simFault === 'auth') throw typedError('HUE_AUTH_ERROR', 'Simulation: Hue-Credential ungültig.');
       if (this.simFault === 'offline') return this.demoDevices.map(device => this.normalizeLight({ ...device, online: false, syncError: 'Simulation: Gerät offline' }));
       return this.demoDevices.map(device => this.normalizeLight(device));
