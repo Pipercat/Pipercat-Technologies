@@ -276,6 +276,7 @@ HUE_SIM_FAULT=command npm start
 99–101. Redigierter SSE-Gerätevertrag, Resync-Sequenz und langsames Fallback-Polling
 102–104. Strikte Kompatibilitätsklasse, bewusste Experimental-Aktivierung und verständliche Support-/Cloudhinweise
 105–107. Deterministische Aktionsketten, geführte Feld-/Operatorauswahl und verständliche Bedingungsvalidierung
+108–110. Sonnenereignis-/Offsetvalidierung, lokaler Tageswechsel und cloudfreie UI-Erklärung
 
 ## Release-Audit
 
