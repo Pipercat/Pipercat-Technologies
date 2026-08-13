@@ -199,6 +199,7 @@ HUE_SIM_FAULT=command npm start
 - `GET /api/device-onboarding/integrations`
 - `GET /api/device-onboarding/discover?integration=simulation`
 - `POST /api/device-onboarding/complete`
+- `GET /api/events/devices` (lokaler SSE-Strom; normalisierte Geräteereignisse)
 
 ## Aktuelle Core-Selftests
 
@@ -272,6 +273,7 @@ HUE_SIM_FAULT=command npm start
 86–89. Dokumentbasis, asynchrone Live-Status, Dialog-/Feldnamen sowie Fokus-, Touch-, Kontrast- und Motion-Regeln
 90–92. Stabile Geräteerkennung, Erkennung bereits hinzugefügter Kandidaten und Schutz vor doppelter Aufnahme
 93–98. Reconnect-Backoff, Erholung ohne Neustart, Zugang nach Adapterneustart, Paketverlust, Bridge-Wechsel und nutzerfreundliche Hue-Fehlermatrix
+99–101. Redigierter SSE-Gerätevertrag, Resync-Sequenz und langsames Fallback-Polling
 
 ## Release-Audit
 

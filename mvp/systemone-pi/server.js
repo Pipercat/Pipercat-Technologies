@@ -25,6 +25,7 @@ const { LocalSessionStore } = require('./lib/local-sessions');
 const { displayState } = require('./lib/display-state');
 const { defaultDashboard, validateDashboard, migrateDashboard } = require('./lib/dashboard-layout');
 const { DEFAULT_LOCALE, validateLocale, localeCatalog, messagesFor } = require('./lib/i18n');
+const { normalizedDeviceEvent } = require('./lib/device-events');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -71,6 +72,14 @@ const simulation = new SimulationAdapter();
 const adapters = new Map([['hue', assertAdapter(hue)], ['simulation', assertAdapter(simulation)]]);
 const registry = new DeviceRegistry(state.devices);
 state.integrations.hue.mode = hue.mode;
+const deviceEventClients = new Set();
+let deviceEventSequence = 0;
+function sendDeviceEvent(type, payload = {}) {
+  const event = normalizedDeviceEvent(type, payload, ++deviceEventSequence);
+  const frame = `id: ${event.sequence}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+  for (const client of deviceEventClients) client.write(frame);
+  return event;
+}
 
 async function applyDeviceCapabilities(deviceId, capabilityPatch) {
   const device = registry.get(deviceId);
@@ -90,9 +99,9 @@ const scheduler = new AutomationScheduler({ engine: automationEngine, solarProvi
 state.automations = automationEngine.list();
 
 function syncRegistryState() { state.devices = registry.list(); }
-registry.on('device.added', syncRegistryState);
-registry.on('device.updated', syncRegistryState);
-registry.on('registry.changed', syncRegistryState);
+registry.on('device.added', device => { syncRegistryState(); sendDeviceEvent('device.added', device); });
+registry.on('device.updated', device => { syncRegistryState(); sendDeviceEvent('device.updated', device); });
+registry.on('registry.changed', () => { syncRegistryState(); sendDeviceEvent('devices.resync'); });
 automationEngine.on('changed', automations => { state.automations = automations; });
 automationEngine.on('executed', automation => { if (automation.lastError) diagnostics.record('AUTOMATION_ACTION_FAILED', automation.lastError.message, { automationId: automation.id }); });
 
@@ -219,6 +228,14 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const pairingBootstrap = req.method === 'POST' && ['/api/onboarding/pair-admin/session','/api/onboarding/pair-admin/complete','/api/display/session'].includes(url.pathname);
     if (state.onboarding.adminPaired && req.method !== 'GET' && !pairingBootstrap) requireSession(req, 'system:write');
+    if (req.method === 'GET' && url.pathname === '/api/events/devices') {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Content-Type-Options': 'nosniff' });
+      res.write(`retry: 5000\nevent: devices.resync\ndata: ${JSON.stringify(normalizedDeviceEvent('devices.resync', {}, ++deviceEventSequence))}\n\n`);
+      deviceEventClients.add(res);
+      const heartbeat = setInterval(() => res.write(': keepalive\n\n'), 20000);
+      req.on('close', () => { clearInterval(heartbeat); deviceEventClients.delete(res); });
+      return;
+    }
     if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, diagnostics.health(state, hue));
     if (req.method === 'GET' && url.pathname === '/api/diagnostics') return json(res, 200, { ...diagnostics.report(state, hue), reconnect: reconnect.snapshot() });
     if (req.method === 'GET' && url.pathname === '/api/setup') return json(res, 200, setupStatus());
