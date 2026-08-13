@@ -31,7 +31,7 @@ const { securityHeaders, validateHost, validateWriteRequest, RateLimiter } = req
 const { AuditLog } = require('./lib/audit-log');
 const { certificateStatus } = require('./lib/tls-identity');
 const { validateUpdatePackage, approveUpdate } = require('./lib/update-package');
-const { createSlotState, stageUpdate, activateStaged, reportBootHealth, recoverInterruptedBoot } = require('./lib/update-slots');
+const { createSlotState, publicUpdateSlotState, stageUpdate, activateStaged, reportBootHealth, recoverInterruptedBoot } = require('./lib/update-slots');
 const { createDiagnosticPackage, previewDiagnosticPackage } = require('./lib/diagnostic-export');
 const { CameraModule } = require('./lib/camera-module');
 const { PiHoleModule } = require('./lib/pihole-module');
@@ -164,7 +164,7 @@ function json(res, status, data, headers = {}) {
 function sessionToken(req, cookieName = 'systemone_session') { const cookie = String(req.headers.cookie || '').split(';').map(item => item.trim()).find(item => item.startsWith(`${cookieName}=`)); return cookie ? decodeURIComponent(cookie.split('=').slice(1).join('=')) : String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''); }
 function bearerToken(req) { return String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''); }
 function requireSession(req, permission = 'system:write', cookieName = 'systemone_session') { return localSessions.authenticate(sessionToken(req, cookieName), permission); }
-function publicState() { const {auditLog:_,...publicData}=state,onboarding = { ...state.onboarding, pairingSession: publicSession(state.onboarding.pairingSession) }; return { ...publicData, onboarding, devices: registry.list({ publicOnly: true }), automations: automationEngine.list() }; }
+function publicState() { const {auditLog:_,updateSlots:__,...publicData}=state,onboarding = { ...state.onboarding, pairingSession: publicSession(state.onboarding.pairingSession) }; return { ...publicData, onboarding, updateSlots:publicUpdateSlotState(state.updateSlots), devices: registry.list({ publicOnly: true }), automations: automationEngine.list() }; }
 function readBody(req,maxBytes){return readJsonBody(req,{maxBytes})}
 function serveStatic(req, res) {
   const rawPath = req.url === '/' ? '/index.html' : req.url.split('?')[0];
@@ -313,7 +313,8 @@ const requestHandler = async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/system') return json(res, 200, state.system);
     if (req.method === 'GET' && url.pathname === '/api/system/identity') return json(res, 200, tlsEnabled ? certificateStatus(path.dirname(tlsKeyPath)) : { provisioned:false,revoked:false,keyLocalOnly:true,transport:'http-development' });
     if (req.method === 'POST' && url.pathname === '/api/updates/validate') return json(res, 200, validateUpdatePackage(await readBody(req,UPDATE_JSON_BYTES),{publicKey:updatePublicKey,currentVersion:state.system.version}));
-    if (req.method === 'GET' && url.pathname === '/api/updates/slots') return json(res,200,state.updateSlots);
+    if (req.method === 'GET' && url.pathname === '/api/updates/slots') return json(res,200,publicUpdateSlotState(state.updateSlots));
+    if (req.method === 'GET' && url.pathname === '/api/updates/slots/internal') {requireSession(req,'users:manage');return json(res,200,state.updateSlots);}
     if (req.method === 'POST' && url.pathname === '/api/updates/approve') { const validation=validateUpdatePackage(await readBody(req,UPDATE_JSON_BYTES),{publicKey:updatePublicKey,currentVersion:state.system.version}),approval=approveUpdate(validation,auditActor),staged=stageUpdate(state.updateSlots,validation,approval);state.updateSlots=staged.state;persist();return json(res,200,{validation,approval,targetSlot:staged.targetSlot}); }
     if (req.method === 'POST' && url.pathname === '/api/updates/activate') { const body=await readBody(req);state.updateSlots=activateStaged(state.updateSlots,body.targetSlot);persist();return json(res,200,state.updateSlots); }
     if (req.method === 'POST' && url.pathname === '/api/updates/health') { state.updateSlots=reportBootHealth(state.updateSlots,await readBody(req));persist();return json(res,200,state.updateSlots); }
