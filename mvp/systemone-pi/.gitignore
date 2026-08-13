@@ -1,5 +1,4 @@
 node_modules/
-package-lock.json
 data/
 data-live/
 data-live-camera/

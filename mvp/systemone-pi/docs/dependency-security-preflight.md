@@ -14,11 +14,12 @@ npm audit --omit=dev
 npm ls --omit=dev --all
 ```
 
-Ergebnis am Prüftag: **0 bekannte Schwachstellen** (`info`, `low`, `moderate`, `high`, `critical` jeweils 0) bei 30 gemeldeten Produktionsabhängigkeiten. Direkte Produktionsabhängigkeit ist `qrcode@1.5.4`; transitive Pakete werden durch `package-lock.json` festgeschrieben.
+Ergebnis am Prüftag: **0 bekannte Schwachstellen** (`info`, `low`, `moderate`, `high`, `critical` jeweils 0) bei 30 gemeldeten Produktionsabhängigkeiten. Direkte Produktionsabhängigkeit ist `qrcode@1.5.4`; transitive Pakete werden durch das versionierte Lockfile-v3 `package-lock.json` festgeschrieben. Ein nicht versioniertes oder von `package.json` abweichendes Lockfile blockiert Installation und Release.
 
 ## Freigaberegel
 
 - `npm ci` muss aus dem versionierten Lockfile erfolgreich sein.
+- Paketname, Version und direkte Dependencies müssen in `package.json` und Lockfile-Root exakt übereinstimmen.
 - Ein `high`- oder `critical`-Finding blockiert Pilot und Beta bis Fix oder dokumentierter, fachlich freigegebener Risikobehandlung.
 - Moderate Findings werden vor jeder Pilotstufe bewertet und mit betroffener Laufzeitfläche dokumentiert.
 - Abhängigkeiten werden nicht allein für eine höhere Versionsnummer aktualisiert; relevante Tests und QR-Onboarding müssen nach jeder Änderung erneut laufen.
