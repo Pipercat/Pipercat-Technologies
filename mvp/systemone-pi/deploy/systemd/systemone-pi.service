@@ -13,7 +13,7 @@ Environment=SYSTEMONE_DATA_DIR=/var/lib/systemone-pi
 ExecStartPre=/usr/bin/node /opt/systemone-pi/current/scripts/check-runtime-config.js
 ExecStart=/usr/bin/node /opt/systemone-pi/current/server.js
 Restart=on-failure
-RestartPreventExitStatus=78
+RestartPreventExitStatus=69 77 78
 RestartSec=5s
 KillSignal=SIGTERM
 TimeoutStopSec=15s

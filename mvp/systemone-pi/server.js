@@ -45,6 +45,7 @@ const { createGracefulShutdown } = require('./lib/process-lifecycle');
 const { EX_CONFIG, validateRuntimeConfig, formatConfigError } = require('./lib/runtime-config');
 const { loadBuildIdentity, publicBuildIdentity } = require('./lib/build-identity');
 const { BACKUP_JSON_BYTES, UPDATE_JSON_BYTES, readJsonBody } = require('./lib/request-body');
+const { createStartupErrorHandler } = require('./lib/server-startup');
 
 let runtimeConfig;
 try{runtimeConfig=validateRuntimeConfig(process.env)}catch(error){console.error(formatConfigError(error));process.exit(EX_CONFIG)}
@@ -407,6 +408,7 @@ const requestHandler = async (req, res) => {
 
 const tlsKeyPath=runtimeConfig.tlsKeyPath,tlsCertPath=runtimeConfig.tlsCertPath,tlsEnabled=runtimeConfig.tlsEnabled;let server;
 if(tlsEnabled){const identity=certificateStatus(path.dirname(tlsKeyPath));if(identity.provisioned&&identity.revoked)throw Object.assign(new Error('Widerrufene TLS-Geräteidentität darf nicht starten.'),{code:'TLS_IDENTITY_REVOKED'});server=https.createServer({key:fs.readFileSync(tlsKeyPath),cert:fs.readFileSync(tlsCertPath),minVersion:'TLSv1.2'},requestHandler)}else server=http.createServer(requestHandler);
+server.once('error',createStartupErrorHandler({port:PORT}));
 
 server.listen(PORT, '0.0.0.0', async () => {
   console.log(`SystemONE Pi MVP v${buildIdentity.version} (${buildIdentity.channel}${buildIdentity.sourceCommit?` · ${buildIdentity.sourceCommit.slice(0,12)}`:''}) läuft auf ${tlsEnabled?'https':'http'}://localhost:${PORT} · Hue-Modus: ${hue.mode}`);
