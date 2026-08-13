@@ -269,10 +269,10 @@ const requestHandler = async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     url.pathname=normalizeApiPath(url.pathname);
     const clientKey=String(req.socket.remoteAddress||'local'),mutating=!['GET','HEAD','OPTIONS'].includes(req.method);let auditActor=null;if(mutating)res.once('finish',()=>{auditLog.record({method:req.method,path:url.pathname,status:res.statusCode,outcome:res.statusCode<400?'success':'failure',actor:auditActor,error:res._auditError});state.auditLog=auditLog.list();persist()});validateHost(req);validateWriteRequest(req);
-    const pairingBootstrap = req.method === 'POST' && ['/api/onboarding/pair-admin/session','/api/onboarding/pair-admin/complete','/api/display/session'].includes(url.pathname);
+    const authenticationExempt = req.method === 'POST' && ['/api/onboarding/pair-admin/complete','/api/display/session'].includes(url.pathname);
     if(mutating){writeLimiter.consume(clientKey);if(url.pathname==='/api/onboarding/pair-admin/session')pairingLimiter.consume(clientKey);if(['/api/onboarding/pair-admin/complete','/api/display/session'].includes(url.pathname))loginLimiter.consume(clientKey)}
     if(mutating&&!state.onboarding.adminPaired)assertBootstrapWrite({adminPaired:false,method:req.method,path:url.pathname,currentStep:state.onboarding.flow.currentStep});
-    if (state.onboarding.adminPaired && mutating && !pairingBootstrap) auditActor=requireSession(req, 'system:write');
+    if (state.onboarding.adminPaired && mutating && !authenticationExempt) auditActor=requireSession(req, 'system:write');
     if (req.method === 'GET' && url.pathname === '/api/events/devices') {
       res.writeHead(200, { ...securityHeaders(), 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive' });
       res.write(`retry: 5000\nevent: devices.resync\ndata: ${JSON.stringify(normalizedDeviceEvent('devices.resync', {}, ++deviceEventSequence))}\n\n`);
@@ -344,9 +344,9 @@ const requestHandler = async (req, res) => {
     const automationMatch = url.pathname.match(/^\/api\/automations\/([^/]+)$/);
     if (automationMatch && req.method === 'PATCH') { const body = await readBody(req); const item = automationEngine.setEnabled(automationMatch[1], body.enabled); if (!item) return json(res, 404, { code: 'AUTOMATION_NOT_FOUND', message: 'Automation nicht gefunden.' }); persist(); return json(res, 200, item); }
     if (automationMatch && req.method === 'DELETE') { if (!automationEngine.remove(automationMatch[1])) return json(res, 404, { code: 'AUTOMATION_NOT_FOUND', message: 'Automation nicht gefunden.' }); persist(); return json(res, 200, { deleted: true }); }
-    if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/session') return json(res, 201, await createPairingSession());
+    if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/session') {if(state.onboarding.adminPaired)requireSession(req,'users:manage');return json(res, 201, await createPairingSession());}
     if (req.method === 'POST' && url.pathname === '/api/onboarding/pair-admin/complete') { const result = completePairing(await readBody(req)); return json(res, 200, { adminPaired: true, session: result.local.session }, { 'Set-Cookie': `systemone_session=${encodeURIComponent(result.local.token)}; HttpOnly; SameSite=Strict${tlsEnabled?'; Secure':''}; Path=/; Max-Age=43200` }); }
-    if (req.method === 'DELETE' && url.pathname === '/api/onboarding/pair-admin/session') { const revoked = Boolean(state.onboarding.pairingSession); state.onboarding.pairingSession = null; return json(res, 200, { revoked }); }
+    if (req.method === 'DELETE' && url.pathname === '/api/onboarding/pair-admin/session') {if(state.onboarding.adminPaired)requireSession(req,'users:manage');const revoked = Boolean(state.onboarding.pairingSession); state.onboarding.pairingSession = null; return json(res, 200, { revoked }); }
     if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, requireSession(req, 'system:read'));
     if (req.method === 'GET' && url.pathname === '/api/admin/sessions') { requireSession(req, 'users:manage'); return json(res, 200, localSessions.list()); }
     if (req.method === 'POST' && url.pathname === '/api/admin/display-sessions') { requireSession(req, 'users:manage'); const created = localSessions.create('display'); return json(res, 201, { session: created.session, launchUrl: `/display.html#token=${encodeURIComponent(created.token)}` }); }
