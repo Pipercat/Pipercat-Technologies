@@ -7,7 +7,7 @@
 Benötigt werden ein SystemONE Pi mit Netzteil, ein Router/Heimnetz sowie ein Smartphone oder Computer im selben lokalen Netz. Für den Entwicklerlauf sind Node.js 20 oder neuer und dieses Projekt erforderlich.
 
 ```sh
-npm install
+npm ci
 npm run verify
 npm start
 ```

@@ -131,7 +131,7 @@ HUE_MODE=real npm start
 
 ```bash
 cd mvp/systemone-pi
-npm install
+npm ci
 npm run check
 npm test
 npm run verify
