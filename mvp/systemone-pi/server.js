@@ -43,6 +43,7 @@ const { API_VERSION, normalizeApiPath, responseEnvelope, publicContract } = requ
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
+const DOCS_DIR = path.join(__dirname, 'docs');
 const DATA_DIR = process.env.SYSTEMONE_DATA_DIR || path.join(__dirname, 'data');
 const diagnostics = new Diagnostics();
 const updatePublicKey=process.env.UPDATE_PUBLIC_KEY_PATH&&fs.existsSync(process.env.UPDATE_PUBLIC_KEY_PATH)?fs.readFileSync(process.env.UPDATE_PUBLIC_KEY_PATH,'utf8'):process.env.UPDATE_PUBLIC_KEY?.replace(/\\n/g,'\n')||null;
@@ -171,6 +172,7 @@ function serveStatic(req, res) {
   res.writeHead(200, { ...securityHeaders(), 'Content-Type': `${types[path.extname(filePath)] || 'application/octet-stream'}; charset=utf-8` });
   fs.createReadStream(filePath).pipe(res); return true;
 }
+function servePublicDoc(req,res){const name=req.url.split('?')[0].replace(/^\/docs\//,'');if(!/^[a-z0-9-]+\.md$/.test(name))return false;const file=path.join(DOCS_DIR,name);if(!file.startsWith(DOCS_DIR)||!fs.existsSync(file))return false;res.writeHead(200,{...securityHeaders(),'Content-Type':'text/markdown; charset=utf-8','Content-Disposition':'inline','Cache-Control':'no-store'});fs.createReadStream(file).pipe(res);return true}
 function markHueOffline(error) {
   registry.list().filter(device => device.integration === 'hue').forEach(device => registry.patch(device.id, { online: false, availability: 'offline', diagnostics: { lastError: error.message } }));
   state.integrations.hue.lastSync = new Date().toISOString();
@@ -386,6 +388,7 @@ const requestHandler = async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/api/devices') return json(res, 200, registry.list({ publicOnly: true }));
     if (req.method === 'GET' && url.pathname === '/api/rooms') return json(res, 200, state.rooms);
+    if (req.method === 'GET' && url.pathname.startsWith('/docs/') && servePublicDoc(req,res))return;
     if (req.method === 'GET' && !url.pathname.startsWith('/api/') && serveStatic(req, res)) return;
     if (req.method === 'GET' && !url.pathname.startsWith('/api/')) { req.url = '/index.html'; if (serveStatic(req, res)) return; }
     return json(res, 404, { code: 'NOT_FOUND', message: 'Route nicht gefunden.' });

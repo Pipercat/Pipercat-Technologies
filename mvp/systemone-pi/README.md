@@ -159,6 +159,8 @@ Das verbindliche Betriebs- und Einwilligungsmodell für Diagnose, Updates, künf
 
 Der erste Mobile Client ist gemäß [`ADR-001`](docs/adr-001-mobile-client.md) eine installierbare Local-First-PWA. Sie nutzt API v1, cached ausschließlich die statische Shell und benötigt weder Pipercat-Konto noch Cloudkonto.
 
+Die vollständige Installations-, Bedienungs-, Backup- und Recovery-Anleitung steht in [`docs/systemone-user-guide.md`](docs/systemone-user-guide.md); am Anfang befindet sich eine druckbare Kurzanleitung.
+
 - `GET /api/health`
 - `GET /api/contract` beziehungsweise `GET /api/v1/contract`
 - `GET /api/diagnostics`
