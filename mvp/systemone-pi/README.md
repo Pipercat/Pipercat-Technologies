@@ -112,6 +112,7 @@ HUE_MODE=real npm start
 - kryptografische lokale Owner-Session als `HttpOnly`-/`SameSite=Strict`-Cookie nach erfolgreichem Pairing
 - zentrale Rollenrechte für Eigentümer, Administrator, Mitglied, Gast und Wanddisplay
 - Schutz aller schreibenden APIs nach dem ersten Admin-Pairing sowie widerrufbare, persistent gehashte Sessions
+- separates Wanddisplay mit eigener `dashboard:read`-Session, freigegebener Datenprojektion und 10-Sekunden-Aktualisierung
 - geführter Setup-Assistent mit sechs Prüfschritten
 - 10 hardwarefreie Selftests
 
@@ -187,6 +188,9 @@ HUE_SIM_FAULT=command npm start
 - `PATCH /api/home`
 - `GET /api/themes`
 - `PATCH /api/settings/theme`
+- `POST /api/admin/display-sessions`
+- `POST /api/display/session`
+- `GET /api/display`
 - `GET /api/device-onboarding/integrations`
 - `POST /api/device-onboarding/complete`
 
@@ -257,6 +261,7 @@ HUE_SIM_FAULT=command npm start
 73–77. Physische Recovery-Pflicht, Einmalcode, Fehlversuchssperre sowie Diagnose- und Backup-Redaktion
 78. Compact-Theme hält responsive Dichte und mindestens 44-Pixel-Touchziele ein
 79. Living-Theme hält WCAG-AA-Textkontrast und mindestens 44-Pixel-Touchziele ein
+80–81. Wanddisplay-Datenprojektion enthält nur freigegebene Inhalte und die Display-Rolle kann niemals schreiben
 
 ## Release-Audit
 

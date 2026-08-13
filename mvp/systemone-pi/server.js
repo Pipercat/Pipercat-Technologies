@@ -22,6 +22,7 @@ const { publicCompatibilityCatalog } = require('./lib/compatibility');
 const { migrateOnboardingState, advanceOnboarding, resetOnboarding } = require('./lib/onboarding-state');
 const { createSession, assertSessionCanStart, verifySession, publicSession } = require('./lib/admin-pairing');
 const { LocalSessionStore } = require('./lib/local-sessions');
+const { displayState } = require('./lib/display-state');
 const { DEFAULT_LOCALE, validateLocale, localeCatalog, messagesFor } = require('./lib/i18n');
 
 const PORT = Number(process.env.PORT || 4170);
@@ -104,8 +105,9 @@ function json(res, status, data, headers = {}) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers });
   res.end(JSON.stringify({ success: status < 400, data: status < 400 ? data : null, error: status >= 400 ? data : null }));
 }
-function sessionToken(req) { const cookie = String(req.headers.cookie || '').split(';').map(item => item.trim()).find(item => item.startsWith('systemone_session=')); return cookie ? decodeURIComponent(cookie.split('=').slice(1).join('=')) : String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''); }
-function requireSession(req, permission = 'system:write') { return localSessions.authenticate(sessionToken(req), permission); }
+function sessionToken(req, cookieName = 'systemone_session') { const cookie = String(req.headers.cookie || '').split(';').map(item => item.trim()).find(item => item.startsWith(`${cookieName}=`)); return cookie ? decodeURIComponent(cookie.split('=').slice(1).join('=')) : String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''); }
+function bearerToken(req) { return String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''); }
+function requireSession(req, permission = 'system:write', cookieName = 'systemone_session') { return localSessions.authenticate(sessionToken(req, cookieName), permission); }
 function publicState() { const onboarding = { ...state.onboarding, pairingSession: publicSession(state.onboarding.pairingSession) }; return { ...state, onboarding, devices: registry.list({ publicOnly: true }), automations: automationEngine.list() }; }
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -212,7 +214,7 @@ function setupStatus() {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    const pairingBootstrap = req.method === 'POST' && ['/api/onboarding/pair-admin/session','/api/onboarding/pair-admin/complete'].includes(url.pathname);
+    const pairingBootstrap = req.method === 'POST' && ['/api/onboarding/pair-admin/session','/api/onboarding/pair-admin/complete','/api/display/session'].includes(url.pathname);
     if (state.onboarding.adminPaired && req.method !== 'GET' && !pairingBootstrap) requireSession(req, 'system:write');
     if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, diagnostics.health(state, hue));
     if (req.method === 'GET' && url.pathname === '/api/diagnostics') return json(res, 200, { ...diagnostics.report(state, hue), reconnect: reconnect.snapshot() });
@@ -248,7 +250,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'DELETE' && url.pathname === '/api/onboarding/pair-admin/session') { const revoked = Boolean(state.onboarding.pairingSession); state.onboarding.pairingSession = null; return json(res, 200, { revoked }); }
     if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, requireSession(req, 'system:read'));
     if (req.method === 'GET' && url.pathname === '/api/admin/sessions') { requireSession(req, 'users:manage'); return json(res, 200, localSessions.list()); }
+    if (req.method === 'POST' && url.pathname === '/api/admin/display-sessions') { requireSession(req, 'users:manage'); const created = localSessions.create('display'); return json(res, 201, { session: created.session, launchUrl: `/display.html#token=${encodeURIComponent(created.token)}` }); }
+    const adminSessionMatch = url.pathname.match(/^\/api\/admin\/sessions\/([^/]+)$/);
+    if (adminSessionMatch && req.method === 'DELETE') { requireSession(req, 'users:manage'); return json(res, 200, { revoked: localSessions.revoke(adminSessionMatch[1]) }); }
     if (req.method === 'DELETE' && url.pathname === '/api/admin/session') { const current = requireSession(req, 'system:read'); return json(res, 200, { revoked: localSessions.revoke(current.id) }, { 'Set-Cookie': 'systemone_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' }); }
+    if (req.method === 'POST' && url.pathname === '/api/display/session') { const token = bearerToken(req), session = localSessions.authenticate(token, 'dashboard:read'); return json(res, 200, session, { 'Set-Cookie': `systemone_display=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200` }); }
+    if (req.method === 'GET' && url.pathname === '/api/display') { requireSession(req, 'dashboard:read', 'systemone_display'); return json(res, 200, displayState(state, registry.list({ publicOnly: true }))); }
     if (req.method === 'GET' && url.pathname === '/api/integrations/hue/discover') return json(res, 200, await discoverHue());
     if (req.method === 'POST' && url.pathname === '/api/integrations/hue/sync') { reconnect.beginAttempt(); updateReconnectState(); return json(res, 200, await syncHue()); }
     if (req.method === 'POST' && url.pathname === '/api/integrations/hue/reconnect') { reconnect.beginAttempt(); updateReconnectState(); await discoverHue(); if (state.integrations.hue.paired) await syncHue(); return json(res, 200, state.integrations.hue); }
