@@ -30,7 +30,7 @@ const {GoveeAdapter,LOCAL_MODEL_ALLOWLIST,CLOUD_ONLY_EXCLUDED,assertLocalModel}=
 const {publicPilotPlan,validatePilotPlan}=require('../lib/integration-pilots');
 const {evaluatePilotReport,publicPilotSummary}=require('../lib/pilot-report');
 const {API_VERSION,normalizeApiPath,responseEnvelope,validateEnvelope,publicContract}=require('../lib/api-contract');
-const {acceptsHtml,shouldServeAppShell}=require('../lib/http-routing');
+const {acceptsHtml,shouldServeAppShell,staticResponseHeaders}=require('../lib/http-routing');
 const demo=[{id:'hue-1',hueId:'1',integration:'hue',type:'light',name:'Testlicht',online:true,on:false,brightness:50}];
 async function adapter(fault=''){process.env.HUE_MODE='simulation';process.env.HUE_SIM_FAULT=fault;const dir=fs.mkdtempSync(path.join(os.tmpdir(),'systemone-test-'));const storage=new LocalStorage(dir);return {hue:new HueAdapter({storage,demoDevices:demo,diagnostics:new Diagnostics()}),dir}}
 (async()=>{let passed=0;async function test(name,fn){try{await fn();passed++;console.log(`✓ ${name}`)}catch(e){console.error(`✗ ${name}: ${e.message}`);process.exitCode=1}}
@@ -242,4 +242,7 @@ await test('PWA und lokale Dokumentation unterstützen HTTP HEAD',async()=>{cons
 await test('SPA-Fallback akzeptiert ausschließlich Browsernavigation',async()=>{assert.equal(acceptsHtml('text/html,application/xhtml+xml'),true);assert.equal(acceptsHtml('*/*'),false);assert.equal(shouldServeAppShell('/rooms','text/html'),true)});
 await test('Fehlende Assets und reservierte Routen erhalten keine App-Shell',async()=>{for(const route of ['/missing.js','/icons/app.png','/api/unknown','/docs/missing.md'])assert.equal(shouldServeAppShell(route,'text/html'),false);assert.equal(shouldServeAppShell('/rooms','application/json'),false)});
 await test('Dependency-Preflight bleibt vom externen Security-Review getrennt',async()=>{const doc=fs.readFileSync(path.join(__dirname,'../docs/dependency-security-preflight.md'),'utf8');for(const term of ['npm audit --omit=dev','0 bekannte Schwachstellen','high','critical','ersetzt weder','externe Security-Review','passed: false'])assert.ok(doc.includes(term))});
-console.log(`\n${passed}/208 Tests bestanden`);if(passed!==208)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});
+await test('Statische App-Dateien erzwingen Revalidierung',async()=>{assert.equal(staticResponseHeaders('index.html')['Cache-Control'],'no-cache');assert.equal(staticResponseHeaders('service-worker.js')['Service-Worker-Allowed'],'/');assert.equal(staticResponseHeaders('app.js')['Service-Worker-Allowed'],undefined)});
+await test('Service Worker cached nur die definierte App-Shell',async()=>{const sw=fs.readFileSync(path.join(__dirname,'../web/service-worker.js'),'utf8');assert.match(sw,/systemone-shell-v2/);assert.match(sw,/SHELL_PATHS\.has\(url\.pathname\)/);assert.match(sw,/event\.request\.mode==='navigate'/);assert.match(sw,/Response\.error\(\)/);assert.doesNotMatch(sw,/cached\|\|caches\.match\('\/index\.html'\)/)});
+await test('CSP sperrt Objekte und begrenzt Worker und Manifest',async()=>{const csp=securityHeaders()['Content-Security-Policy'];for(const directive of ["object-src 'none'","worker-src 'self'","manifest-src 'self'"])assert.ok(csp.includes(directive))});
+console.log(`\n${passed}/211 Tests bestanden`);if(passed!==211)process.exitCode=1})().catch(e=>{console.error(e);process.exit(1)});

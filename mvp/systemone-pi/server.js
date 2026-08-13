@@ -40,7 +40,7 @@ const { createYouDoModules } = require('./lib/module-registry');
 const { GoveeAdapter, LOCAL_MODEL_ALLOWLIST, CLOUD_ONLY_EXCLUDED } = require('./lib/govee');
 const { publicPilotPlan } = require('./lib/integration-pilots');
 const { API_VERSION, normalizeApiPath, responseEnvelope, publicContract } = require('./lib/api-contract');
-const { shouldServeAppShell } = require('./lib/http-routing');
+const { shouldServeAppShell, staticResponseHeaders } = require('./lib/http-routing');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -171,7 +171,7 @@ function serveStatic(req, res) {
   if (!filePath.startsWith(PUBLIC_DIR) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) return false;
   const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript', '.svg': 'image/svg+xml','.webmanifest':'application/manifest+json' };
   const size=fs.statSync(filePath).size;
-  res.writeHead(200, { ...securityHeaders(), 'Content-Type': `${types[path.extname(filePath)] || 'application/octet-stream'}; charset=utf-8`, 'Content-Length':size });
+  res.writeHead(200, { ...securityHeaders(), ...staticResponseHeaders(filePath), 'Content-Type': `${types[path.extname(filePath)] || 'application/octet-stream'}; charset=utf-8`, 'Content-Length':size });
   if(req.method==='HEAD'){res.end();return true}
   fs.createReadStream(filePath).pipe(res); return true;
 }

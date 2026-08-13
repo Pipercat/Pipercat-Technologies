@@ -15,4 +15,12 @@ function shouldServeAppShell(pathname,accept=''){
   return acceptsHtml(accept);
 }
 
-module.exports={acceptsHtml,shouldServeAppShell};
+function staticResponseHeaders(fileName=''){
+  const name=String(fileName).split('/').pop();
+  return {
+    'Cache-Control':'no-cache',
+    ...(name==='service-worker.js'?{'Service-Worker-Allowed':'/'}:{})
+  };
+}
+
+module.exports={acceptsHtml,shouldServeAppShell,staticResponseHeaders};
