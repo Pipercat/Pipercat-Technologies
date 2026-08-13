@@ -31,6 +31,7 @@ const { securityHeaders, validateHost, validateWriteRequest, RateLimiter } = req
 const { AuditLog } = require('./lib/audit-log');
 const { certificateStatus } = require('./lib/tls-identity');
 const { validateUpdatePackage, approveUpdate } = require('./lib/update-package');
+const { createSlotState, stageUpdate, activateStaged, reportBootHealth, recoverInterruptedBoot } = require('./lib/update-slots');
 
 const PORT = Number(process.env.PORT || 4170);
 const PUBLIC_DIR = path.join(__dirname, 'web');
@@ -53,6 +54,7 @@ const initialState = {
   automationHistory: [],
   schedulerExecuted: {},
   auditLog: [],
+  updateSlots: createSlotState('0.4.0'),
   dashboard: defaultDashboard()
 };
 
@@ -69,9 +71,11 @@ const state = {
   automationHistory: Array.isArray(persisted.automationHistory) ? persisted.automationHistory.slice(0,100) : [],
   schedulerExecuted: persisted.schedulerExecuted && typeof persisted.schedulerExecuted === 'object' ? persisted.schedulerExecuted : {},
   auditLog: Array.isArray(persisted.auditLog) ? persisted.auditLog.slice(0,500) : [],
+  updateSlots: persisted.updateSlots && persisted.updateSlots.schemaVersion===1 ? persisted.updateSlots : createSlotState('0.4.0'),
   dashboard: migrateDashboard(persisted.dashboard)
 };
 state.onboarding.flow = migrateOnboardingState(state.onboarding);
+state.updateSlots=recoverInterruptedBoot(state.updateSlots);
 state.onboarding.completed = state.onboarding.flow.currentStep === 'complete';
 try { state.onboarding.locale = validateLocale(state.onboarding.locale || DEFAULT_LOCALE); } catch { state.onboarding.locale = DEFAULT_LOCALE; }
 
@@ -272,7 +276,10 @@ const requestHandler = async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/system') return json(res, 200, state.system);
     if (req.method === 'GET' && url.pathname === '/api/system/identity') return json(res, 200, tlsEnabled ? certificateStatus(path.dirname(tlsKeyPath)) : { provisioned:false,revoked:false,keyLocalOnly:true,transport:'http-development' });
     if (req.method === 'POST' && url.pathname === '/api/updates/validate') return json(res, 200, validateUpdatePackage(await readBody(req),{publicKey:updatePublicKey,currentVersion:state.system.version}));
-    if (req.method === 'POST' && url.pathname === '/api/updates/approve') { const validation=validateUpdatePackage(await readBody(req),{publicKey:updatePublicKey,currentVersion:state.system.version});return json(res,200,{validation,approval:approveUpdate(validation,auditActor)}); }
+    if (req.method === 'GET' && url.pathname === '/api/updates/slots') return json(res,200,state.updateSlots);
+    if (req.method === 'POST' && url.pathname === '/api/updates/approve') { const validation=validateUpdatePackage(await readBody(req),{publicKey:updatePublicKey,currentVersion:state.system.version}),approval=approveUpdate(validation,auditActor),staged=stageUpdate(state.updateSlots,validation,approval);state.updateSlots=staged.state;persist();return json(res,200,{validation,approval,targetSlot:staged.targetSlot}); }
+    if (req.method === 'POST' && url.pathname === '/api/updates/activate') { const body=await readBody(req);state.updateSlots=activateStaged(state.updateSlots,body.targetSlot);persist();return json(res,200,state.updateSlots); }
+    if (req.method === 'POST' && url.pathname === '/api/updates/health') { state.updateSlots=reportBootHealth(state.updateSlots,await readBody(req));persist();return json(res,200,state.updateSlots); }
     if (req.method === 'GET' && url.pathname === '/api/themes') return json(res, 200, THEMES);
     if (req.method === 'GET' && url.pathname === '/api/dashboard') return json(res, 200, state.dashboard);
     if (req.method === 'PATCH' && url.pathname === '/api/dashboard') { state.dashboard = validateDashboard(await readBody(req)); persist(); return json(res, 200, state.dashboard); }
