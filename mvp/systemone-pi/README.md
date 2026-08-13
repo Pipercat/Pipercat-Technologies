@@ -114,6 +114,7 @@ HUE_MODE=real npm start
 - Schutz aller schreibenden APIs nach dem ersten Admin-Pairing sowie widerrufbare, persistent gehashte Sessions
 - separates Wanddisplay mit eigener `dashboard:read`-Session, freigegebener Datenprojektion und 10-Sekunden-Aktualisierung
 - einfacher Dashboard-Editor für Reihenfolge, Sichtbarkeit, Kartengröße und Schnellzugriff mit Live-Vorschau und Standard-Reset
+- vereinheitlichte Skeleton-, Lade-, Leer-, Offline-, Fehler- und Retry-Zustände mit Live-Region, Tastaturfokus, groben Touchzielen und reduzierter Bewegung
 - geführter Setup-Assistent mit sechs Prüfschritten
 - 10 hardwarefreie Selftests
 
@@ -267,6 +268,7 @@ HUE_SIM_FAULT=command npm start
 79. Living-Theme hält WCAG-AA-Textkontrast und mindestens 44-Pixel-Touchziele ein
 80–81. Wanddisplay-Datenprojektion enthält nur freigegebene Inhalte und die Display-Rolle kann niemals schreiben
 82–85. Dashboard-Layout validiert Reihenfolge und Größe, verhindert leere/duplizierte Zustände und migriert sicher auf Standard
+86–89. Dokumentbasis, asynchrone Live-Status, Dialog-/Feldnamen sowie Fokus-, Touch-, Kontrast- und Motion-Regeln
 
 ## Release-Audit
 
