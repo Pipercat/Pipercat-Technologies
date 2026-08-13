@@ -23,6 +23,7 @@ const { migrateOnboardingState, advanceOnboarding, resetOnboarding } = require('
 const { createSession, assertSessionCanStart, verifySession, publicSession } = require('./lib/admin-pairing');
 const { LocalSessionStore } = require('./lib/local-sessions');
 const { displayState } = require('./lib/display-state');
+const { defaultDashboard, validateDashboard, migrateDashboard } = require('./lib/dashboard-layout');
 const { DEFAULT_LOCALE, validateLocale, localeCatalog, messagesFor } = require('./lib/i18n');
 
 const PORT = Number(process.env.PORT || 4170);
@@ -41,7 +42,8 @@ const initialState = {
   integrations: { hue: { discovered: false, paired: false, bridge: null, lastSync: null, syncError: null, mode: 'simulation', reconnect: reconnect.snapshot() } },
   rooms: [{ id: 'living', name: 'Wohnzimmer' }, { id: 'office', name: 'Büro' }, { id: 'bedroom', name: 'Schlafzimmer' }],
   devices: [],
-  automations: []
+  automations: [],
+  dashboard: defaultDashboard()
 };
 
 const persisted = storage.loadState(initialState);
@@ -53,7 +55,8 @@ const state = {
   integrations: { ...initialState.integrations, ...(persisted.integrations || {}), hue: { ...initialState.integrations.hue, ...(persisted.integrations?.hue || {}), reconnect: reconnect.snapshot() } },
   rooms: Array.isArray(persisted.rooms) ? persisted.rooms : initialState.rooms,
   devices: Array.isArray(persisted.devices) ? persisted.devices.map(migrateLegacyDevice) : [],
-  automations: Array.isArray(persisted.automations) ? persisted.automations : []
+  automations: Array.isArray(persisted.automations) ? persisted.automations : [],
+  dashboard: migrateDashboard(persisted.dashboard)
 };
 state.onboarding.flow = migrateOnboardingState(state.onboarding);
 state.onboarding.completed = state.onboarding.flow.currentStep === 'complete';
@@ -231,6 +234,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/device-onboarding/complete') { const input = validateOnboardingRequest(await readBody(req), state.rooms); const device = simulation.create(input); registry.upsert(device); persist(); return json(res, 201, { device: publicDevice(device), test: { success: true, message: 'Gerät antwortet und ist bereit.' } }); }
     if (req.method === 'GET' && url.pathname === '/api/system') return json(res, 200, state.system);
     if (req.method === 'GET' && url.pathname === '/api/themes') return json(res, 200, THEMES);
+    if (req.method === 'GET' && url.pathname === '/api/dashboard') return json(res, 200, state.dashboard);
+    if (req.method === 'PATCH' && url.pathname === '/api/dashboard') { state.dashboard = validateDashboard(await readBody(req)); persist(); return json(res, 200, state.dashboard); }
+    if (req.method === 'POST' && url.pathname === '/api/dashboard/reset') { state.dashboard = defaultDashboard(); persist(); return json(res, 200, state.dashboard); }
     if (req.method === 'PATCH' && url.pathname === '/api/settings/theme') { const body = await readBody(req); state.onboarding.selectedTheme = validateTheme(body.theme); persist(); return json(res, 200, { selectedTheme: state.onboarding.selectedTheme }); }
     if (req.method === 'GET' && url.pathname === '/api/home') return json(res, 200, state.home);
     if (req.method === 'PATCH' && url.pathname === '/api/home') { const body = await readBody(req); if (typeof body.name === 'string' && body.name.trim()) state.home.name = body.name.trim().slice(0, 80); if (body.location !== undefined) state.home.location = body.location === null ? null : validateLocation(body.location); persist(); return json(res, 200, state.home); }

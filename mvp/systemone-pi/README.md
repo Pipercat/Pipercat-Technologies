@@ -113,6 +113,7 @@ HUE_MODE=real npm start
 - zentrale Rollenrechte für Eigentümer, Administrator, Mitglied, Gast und Wanddisplay
 - Schutz aller schreibenden APIs nach dem ersten Admin-Pairing sowie widerrufbare, persistent gehashte Sessions
 - separates Wanddisplay mit eigener `dashboard:read`-Session, freigegebener Datenprojektion und 10-Sekunden-Aktualisierung
+- einfacher Dashboard-Editor für Reihenfolge, Sichtbarkeit, Kartengröße und Schnellzugriff mit Live-Vorschau und Standard-Reset
 - geführter Setup-Assistent mit sechs Prüfschritten
 - 10 hardwarefreie Selftests
 
@@ -191,6 +192,9 @@ HUE_SIM_FAULT=command npm start
 - `POST /api/admin/display-sessions`
 - `POST /api/display/session`
 - `GET /api/display`
+- `GET /api/dashboard`
+- `PATCH /api/dashboard`
+- `POST /api/dashboard/reset`
 - `GET /api/device-onboarding/integrations`
 - `POST /api/device-onboarding/complete`
 
@@ -262,6 +266,7 @@ HUE_SIM_FAULT=command npm start
 78. Compact-Theme hält responsive Dichte und mindestens 44-Pixel-Touchziele ein
 79. Living-Theme hält WCAG-AA-Textkontrast und mindestens 44-Pixel-Touchziele ein
 80–81. Wanddisplay-Datenprojektion enthält nur freigegebene Inhalte und die Display-Rolle kann niemals schreiben
+82–85. Dashboard-Layout validiert Reihenfolge und Größe, verhindert leere/duplizierte Zustände und migriert sicher auf Standard
 
 ## Release-Audit
 
