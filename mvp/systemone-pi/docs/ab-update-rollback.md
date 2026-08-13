@@ -5,6 +5,7 @@ Stand: 13.08.2026 · Bearbeitet von: Pipercat Technologies
 ## Modell
 
 - Zwei unveränderliche Anwendungsslots A/B; nur der inaktive Slot wird beschrieben.
+- Physisches Layout: `/opt/systemone-pi/slots/A`, `/opt/systemone-pi/slots/B` und der atomar ersetzte Symlink `/opt/systemone-pi/current`. Die systemd-Unit startet ausschließlich über `current`.
 - Die lokale Datenpartition `systemone-data` liegt außerhalb beider Slots. Ein Slotwechsel verändert ihre Generation nicht.
 - Nach Signaturprüfung und Adminfreigabe wird der inaktive Slot `staged`, anschließend einmalig als `candidate` gebootet.
 - Innerhalb von fünf Minuten müssen Prozess-, API-, Speicher- und Migrationscheck erfolgreich sein. Erst dann wird der Slot `confirmed`.
@@ -14,10 +15,12 @@ Stand: 13.08.2026 · Bearbeitet von: Pipercat Technologies
 
 1. Vollständiges Backup der separaten Datenpartition erstellen und Prüfsumme protokollieren.
 2. Bestätigten Slot und Version erfassen; signiertes Paket in den inaktiven Slot schreiben und dessen Hash erneut prüfen.
-3. Bootziel einmalig auf den Candidate-Slot setzen, Watchdog/Bootzähler aktivieren und neu starten.
+3. `current.next` auf den Candidate-Slot setzen, den Symlink atomar per Rename als `current` aktivieren, Watchdog/Bootzähler aktivieren und neu starten. Der alte Symlinkwert bleibt als Rollbackziel protokolliert.
 4. `/api/health`, lokalen Speicher, Automationen und Migrationsstatus innerhalb des Fünf-Minuten-Fensters prüfen.
 5. Erfolgsfall: Candidate bestätigen und Bootzähler löschen. Fehlerfall: vorherigen Slot setzen und neu starten.
 6. Stromausfalltest während „staged“, während Slotwechsel und vor Bestätigung durchführen; jeweils vorherigen Slot und unveränderte Datenprüfsumme belegen.
 7. Eine absichtlich fehlschlagende Migration testen; Rollback und unveränderte Datengeneration dokumentieren.
+
+`readlink -f /opt/systemone-pi/current`, Zustandsautomat `activeSlot` und gestartete Version müssen vor und nach jedem Wechsel übereinstimmen. Ein Ziel außerhalb `slots/A|B`, Änderungen am aktiven Slot oder ein Slotwechsel ohne Signaturprüfung und lokale Adminfreigabe sind harte Abbruchgründe.
 
 Der Codezustandsautomat und alle Fehlerpfade sind hardwarefrei getestet. Der praktische Stromausfallnachweis muss auf dem endgültigen Pi-/Speicherlayout wiederholt und im Pilotprotokoll ergänzt werden.
