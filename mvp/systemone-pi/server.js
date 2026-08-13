@@ -44,6 +44,7 @@ const { shouldServeAppShell, staticResponseHeaders } = require('./lib/http-routi
 const { createGracefulShutdown } = require('./lib/process-lifecycle');
 const { EX_CONFIG, validateRuntimeConfig, formatConfigError } = require('./lib/runtime-config');
 const { loadBuildIdentity, publicBuildIdentity } = require('./lib/build-identity');
+const { BACKUP_JSON_BYTES, UPDATE_JSON_BYTES, readJsonBody } = require('./lib/request-body');
 
 let runtimeConfig;
 try{runtimeConfig=validateRuntimeConfig(process.env)}catch(error){console.error(formatConfigError(error));process.exit(EX_CONFIG)}
@@ -163,14 +164,7 @@ function sessionToken(req, cookieName = 'systemone_session') { const cookie = St
 function bearerToken(req) { return String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''); }
 function requireSession(req, permission = 'system:write', cookieName = 'systemone_session') { return localSessions.authenticate(sessionToken(req, cookieName), permission); }
 function publicState() { const {auditLog:_,...publicData}=state,onboarding = { ...state.onboarding, pairingSession: publicSession(state.onboarding.pairingSession) }; return { ...publicData, onboarding, devices: registry.list({ publicOnly: true }), automations: automationEngine.list() }; }
-function readBody(req) {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', chunk => { body += chunk; if (body.length > 1024 * 1024) reject(Object.assign(new Error('Payload zu groß.'), { code: 'INVALID_REQUEST' })); });
-    req.on('end', () => { if (!body) return resolve({}); try { resolve(JSON.parse(body)); } catch { reject(Object.assign(new Error('Ungültiges JSON.'), { code: 'INVALID_REQUEST' })); } });
-    req.on('error', reject);
-  });
-}
+function readBody(req,maxBytes){return readJsonBody(req,{maxBytes})}
 function serveStatic(req, res) {
   const rawPath = req.url === '/' ? '/index.html' : req.url.split('?')[0];
   const normalized = path.normalize(rawPath).replace(/^([.][.][/\\])+/, '');
@@ -317,9 +311,9 @@ const requestHandler = async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/device-onboarding/complete') { const startedAt = Date.now(), input = validateOnboardingRequest(await readBody(req), state.rooms, registry.list()); const device = simulation.create({ ...input, id: input.candidateId || undefined, serialNumber: input.candidateId ? `DISC-${input.candidateId.toUpperCase()}` : undefined }); registry.upsert(device); persist(); return json(res, 201, { device: publicDevice(device), test: { success: true, latencyMs: Date.now() - startedAt, checks: [{ id: 'identity', ok: Boolean(device.id) }, { id: 'availability', ok: device.online }, { id: 'capabilities', ok: Object.keys(device.capabilities).length > 0 }], message: 'Identität, Erreichbarkeit und Funktionen wurden lokal geprüft.' } }); }
     if (req.method === 'GET' && url.pathname === '/api/system') return json(res, 200, state.system);
     if (req.method === 'GET' && url.pathname === '/api/system/identity') return json(res, 200, tlsEnabled ? certificateStatus(path.dirname(tlsKeyPath)) : { provisioned:false,revoked:false,keyLocalOnly:true,transport:'http-development' });
-    if (req.method === 'POST' && url.pathname === '/api/updates/validate') return json(res, 200, validateUpdatePackage(await readBody(req),{publicKey:updatePublicKey,currentVersion:state.system.version}));
+    if (req.method === 'POST' && url.pathname === '/api/updates/validate') return json(res, 200, validateUpdatePackage(await readBody(req,UPDATE_JSON_BYTES),{publicKey:updatePublicKey,currentVersion:state.system.version}));
     if (req.method === 'GET' && url.pathname === '/api/updates/slots') return json(res,200,state.updateSlots);
-    if (req.method === 'POST' && url.pathname === '/api/updates/approve') { const validation=validateUpdatePackage(await readBody(req),{publicKey:updatePublicKey,currentVersion:state.system.version}),approval=approveUpdate(validation,auditActor),staged=stageUpdate(state.updateSlots,validation,approval);state.updateSlots=staged.state;persist();return json(res,200,{validation,approval,targetSlot:staged.targetSlot}); }
+    if (req.method === 'POST' && url.pathname === '/api/updates/approve') { const validation=validateUpdatePackage(await readBody(req,UPDATE_JSON_BYTES),{publicKey:updatePublicKey,currentVersion:state.system.version}),approval=approveUpdate(validation,auditActor),staged=stageUpdate(state.updateSlots,validation,approval);state.updateSlots=staged.state;persist();return json(res,200,{validation,approval,targetSlot:staged.targetSlot}); }
     if (req.method === 'POST' && url.pathname === '/api/updates/activate') { const body=await readBody(req);state.updateSlots=activateStaged(state.updateSlots,body.targetSlot);persist();return json(res,200,state.updateSlots); }
     if (req.method === 'POST' && url.pathname === '/api/updates/health') { state.updateSlots=reportBootHealth(state.updateSlots,await readBody(req));persist();return json(res,200,state.updateSlots); }
     if (req.method === 'GET' && url.pathname === '/api/themes') return json(res, 200, THEMES);
@@ -335,7 +329,7 @@ const requestHandler = async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/backups/run') return json(res,201,runBackupCycle());
     if (req.method === 'POST' && url.pathname === '/api/backups/export') {const body=await readBody(req),target=backupManager.allowedRoots[Number(body.targetId)];if(!target)throw Object.assign(new Error('Freigegebenes USB-/NAS-Ziel wurde nicht gefunden.'),{code:'BACKUP_TARGET_FORBIDDEN'});const written=backupManager.write(exportBackup(),{targetDir:target,passphrase:body.passphrase||null});return json(res,201,{written,restoreTest:backupManager.testRestore(written.file,{targetDir:target,passphrase:body.passphrase||null})});}
     if (req.method === 'POST' && url.pathname === '/api/backups/restore-test') {const body=await readBody(req);lastBackupRestoreTest=backupManager.testRestore(body.file,{passphrase:body.passphrase||null});return json(res,200,lastBackupRestoreTest);}
-    if (req.method === 'POST' && url.pathname === '/api/backup/validate') return json(res, 200, summarizeBackup(await readBody(req)));
+    if (req.method === 'POST' && url.pathname === '/api/backup/validate') return json(res, 200, summarizeBackup(await readBody(req,BACKUP_JSON_BYTES)));
     if (req.method === 'GET' && url.pathname === '/api/automations/templates') return json(res, 200, TEMPLATES);
     if (req.method === 'GET' && url.pathname === '/api/automations/scheduler') return json(res, 200, scheduler.status());
     if (req.method === 'GET' && url.pathname === '/api/automations') return json(res, 200, automationEngine.list());
@@ -394,7 +388,7 @@ const requestHandler = async (req, res) => {
       const room = { id, name }; state.rooms.push(room); persist(); return json(res, 201, room);
     }
     if (req.method === 'POST' && url.pathname === '/api/backup/restore') {
-      return json(res, 200, restoreBackup(await readBody(req)));
+      return json(res, 200, restoreBackup(await readBody(req,BACKUP_JSON_BYTES)));
     }
     if (req.method === 'GET' && url.pathname === '/api/devices') return json(res, 200, registry.list({ publicOnly: true }));
     if (req.method === 'GET' && url.pathname === '/api/rooms') return json(res, 200, state.rooms);
@@ -407,7 +401,7 @@ const requestHandler = async (req, res) => {
     diagnostics.record(error.code || 'INTERNAL_ERROR', error.message || 'Unbekannter Fehler.', error.details || {});
     const conflictCodes = ['HUE_LINK_BUTTON_REQUIRED','PAIRING_SESSION_ACTIVE','PAIRING_SESSION_EXPIRED','PAIRING_INVALID','PAIRING_RATE_LIMITED','HUE_DEVICE_OFFLINE','DEVICE_OFFLINE'];
     const authCodes = ['SESSION_INVALID','SESSION_REVOKED','SESSION_EXPIRED'], forbiddenCodes = ['SESSION_FORBIDDEN','HOST_FORBIDDEN','CSRF_ORIGIN_INVALID','CSRF_TOKEN_MISSING'],rateCodes=['RATE_LIMITED'];
-    return json(res, authCodes.includes(error.code) ? 401 : forbiddenCodes.includes(error.code) ? 403 : rateCodes.includes(error.code)?429:conflictCodes.includes(error.code) ? 409 : 400, { code: error.code || 'INTERNAL_ERROR', message: error.message || 'Ungültige Anfrage.' });
+    return json(res,error.code==='REQUEST_BODY_TOO_LARGE'?413:authCodes.includes(error.code) ? 401 : forbiddenCodes.includes(error.code) ? 403 : rateCodes.includes(error.code)?429:conflictCodes.includes(error.code) ? 409 : 400, { code: error.code || 'INTERNAL_ERROR', message: error.message || 'Ungültige Anfrage.' });
   }
 };
 
