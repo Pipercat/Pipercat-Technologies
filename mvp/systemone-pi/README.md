@@ -319,7 +319,7 @@ Vor jedem externen Einsatz ist die [`Pilotkunden-Checkliste`](docs/pilot-custome
 npm run release:audit
 ```
 
-Der Befehl schlägt bis zur echten Pilotfreigabe bewusst fehl und listet die offenen Pflicht-Gates aus `release-evidence.json` auf.
+Der Befehl schlägt bis zur echten externen Beta-Freigabe bewusst fehl und listet zehn Pflicht-Gates aus `release-evidence.json` auf. Dazu zählen ausdrücklich reale Hardware-/Pilotevidenz, externes Security-Review, Rechts-/Steuerprüfung und die benannte Unternehmensfreigabe. Das Go/No-Go-Dossier steht in [`docs/external-beta-release-dossier.md`](docs/external-beta-release-dossier.md).
 
 ## Noch nicht produktionsreif
 
