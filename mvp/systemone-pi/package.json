@@ -8,9 +8,10 @@
     "dev": "node --watch server.js",
     "check": "node --check server.js && for file in lib/*.js web/*.js scripts/*.js; do node --check \"$file\"; done",
     "test": "node scripts/selftest.js",
-    "verify": "npm run check && npm test",
+    "verify": "npm run check && npm run secrets:check && npm test",
     "release:audit": "node scripts/release-audit.js",
     "config:check": "node scripts/check-runtime-config.js",
+    "secrets:check": "node scripts/secret-preflight.js",
     "pilot:dry-run": "node scripts/pilot-dry-run.js"
     ,"tls:provision": "node scripts/tls-identity.js provision"
     ,"tls:renew": "node scripts/tls-identity.js renew"

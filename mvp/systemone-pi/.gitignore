@@ -3,4 +3,12 @@ package-lock.json
 data/
 data-live/
 data-live-camera/
+backups/
+.env
+*.env
+!*.env.example
+*.pem
+*.key
+*.p12
+*.pfx
 *.tmp

@@ -3,9 +3,9 @@
   "release": "systemone-pi-external-beta",
   "updatedAt": "2026-08-13",
   "gates": {
-    "automated": { "required": true, "passed": true, "evidence": ["npm run verify: Syntaxprüfung und 229/229 Selftests am 2026-08-13"] },
+    "automated": { "required": true, "passed": true, "evidence": ["npm run verify: Syntaxprüfung, Secret-Preflight und 233/233 Selftests am 2026-08-13"] },
     "app": { "required": true, "passed": true, "evidence": ["Installierbare local-first PWA, API/Eventvertrag v1 und responsive App-Zustände automatisiert geprüft"] },
-    "security": { "required": true, "passed": false, "evidence": ["Lokale Rollen, TLS, CSRF, Rate-Limit und Redaction implementiert", "npm audit --omit=dev am 2026-08-13: 0 bekannte Schwachstellen", "Externes Security-Review offen"] },
+    "security": { "required": true, "passed": false, "evidence": ["Lokale Rollen, TLS, CSRF, Rate-Limit und Redaction implementiert", "npm audit --omit=dev am 2026-08-13: 0 bekannte Schwachstellen", "Versionierter Secret-Preflight für aktuelle Git-Dateien bestanden", "Externes Security-Review und Git-Historien-/Provider-Scan offen"] },
     "hardware": { "required": true, "passed": false, "evidence": ["Hue-/Govee-Hardwarematrix und physischer Ziel-Pi-Lauf offen"] },
     "backupRecovery": { "required": true, "passed": false, "evidence": ["Verschlüsselter Restore und Rotation hardwarefrei getestet; realer Restore am Ziel-Pi offen"] },
     "updateRollback": { "required": true, "passed": false, "evidence": ["Signatur und A/B-Rollback simuliert; physischer Strom-/Rollbacklauf offen"] },
