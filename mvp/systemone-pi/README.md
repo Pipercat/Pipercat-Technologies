@@ -167,6 +167,8 @@ Das verbindliche Betriebs- und Einwilligungsmodell für Diagnose, Updates, künf
 - `POST /api/pihole/refresh`
 - `POST /api/pihole/blocking`
 - `GET /api/modules` (dynamisch aktive lokale Modulmanifeste)
+- `GET /api/integrations/govee` (hardware-sicherer lokaler Pilotstatus)
+- `POST /api/integrations/govee/simulate`
 - `GET /api/setup`
 - `GET /api/onboarding`
 - `POST /api/onboarding/advance`
