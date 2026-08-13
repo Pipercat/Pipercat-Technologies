@@ -161,6 +161,8 @@ Der erste Mobile Client ist gemäß [`ADR-001`](docs/adr-001-mobile-client.md) e
 
 Die vollständige Installations-, Bedienungs-, Backup- und Recovery-Anleitung steht in [`docs/systemone-user-guide.md`](docs/systemone-user-guide.md); am Anfang befindet sich eine druckbare Kurzanleitung.
 
+Vor jedem externen Einsatz ist die [`Pilotkunden-Checkliste`](docs/pilot-customer-checklist.md) vollständig durchzugehen und beidseitig zu bestätigen.
+
 - `GET /api/health`
 - `GET /api/contract` beziehungsweise `GET /api/v1/contract`
 - `GET /api/diagnostics`
