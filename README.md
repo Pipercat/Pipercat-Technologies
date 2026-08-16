@@ -38,6 +38,6 @@ Pipercat Technologies entwickelt modulare Smart-Home-, Homeserver-, Netzwerk- un
 
 ## Status
 
-Der SystemONE-Pi-Core v0.4.0 wird auf dem Branch `mvp/systemone-pi-v0.1` als geschlossener, lokaler Pilot entwickelt. Die [Pilotarchitektur](docs/architecture/adr-0001-systemone-pi-pilot.md) ist verbindlich festgelegt; vor einem Pilotbetrieb fehlen insbesondere Zugriffsschutz, TLS/Geräteidentität, signierte Updates, getestetes Rollback und die echte Hue-Hardwarefreigabe.
+Der SystemONE-Pi-Core v0.4.0 wird auf dem Branch `mvp/systemone-pi-v0.1` als geschlossener, lokaler Pilot entwickelt. Die [Pilotarchitektur](docs/architecture/adr-0001-systemone-pi-pilot.md) ist verbindlich festgelegt. Zugriffsschutz, TLS/Geräteidentität, signierte Updates und das A/B-Rollback-Modell sind implementiert und hardwarefrei getestet (295/295 Selftests). Vor der Pilotfreigabe fehlt ausschließlich der praktische Nachweis auf echter Hardware bzw. mit echten Personen: reale Hue-Hardwarevalidierung, ein A/B-Stromausfalltest auf dem Ziel-Pi sowie ein externer Verständlichkeitstest der Bedienungsanleitung — siehe [Implementierungsstatus](IMPLEMENTATION_STATUS.md).
 
 > Rechtlicher Hinweis: Dieses Repository enthält unverbindliche Arbeitsentwürfe und keine Rechts- oder Steuerberatung. Rechtliche Dokumente müssen vor Verwendung fachkundig geprüft werden.
