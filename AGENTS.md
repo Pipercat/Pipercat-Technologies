@@ -99,6 +99,7 @@ Nach jeder Arbeitseinheit gilt die Testfrage: „Wenn ich jetzt sofort verschwin
 - [`docs/architecture/self-healing-service.md`](docs/architecture/self-healing-service.md) — Severity, Allowlist sicherer Aktionen, Audit, Wiederholungsalarm (Notion-Aufgabe `S1V2-02-006`)
 - [`docs/architecture/emergency-mode.md`](docs/architecture/emergency-mode.md) — Notfallmodus-Zustände, manueller/automatischer Eintritt, Neustart-Sicherheit, Freigabepflicht (Notion-Aufgabe `S1V2-02-007`)
 - [`docs/architecture/auth.md`](docs/architecture/auth.md) — Argon2id-Hashing, Sessions/Rotation/Widerruf, Rate-Limit, CSRF, kein Kunden-Root (Notion-Aufgabe `S1V2-02-008`)
+- [`docs/architecture/role-management.md`](docs/architecture/role-management.md) — Rollenkatalog, geschützte Rollen, Eskalationsschutz (Notion-Aufgabe `S1V2-02-009`)
 - [`docs/architecture/adr-0002-home-assistant-backbone.md`](docs/architecture/adr-0002-home-assistant-backbone.md) — **verbindliche Zielarchitektur** (Notion-Aufgabe `S1V2-01-001`)
 - [`docs/architecture/adr-0001-systemone-pi-pilot.md`](docs/architecture/adr-0001-systemone-pi-pilot.md) — historische Pilotarchitektur, teilweise ersetzt durch ADR-0002
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — Kurzüberblick, verweist auf ADR-0002

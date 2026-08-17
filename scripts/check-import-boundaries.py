@@ -42,7 +42,15 @@ def find_violations() -> list[str]:
         if not source_dir.exists():
             continue
         for py_file in source_dir.rglob("*.py"):
-            if ".venv" in py_file.parts:
+            # Exact-component check would miss ".venv312" etc. (any venv
+            # created with a non-default name/python version) and end up
+            # scanning every installed package's source - slow and
+            # pointless. Match any component that merely starts with
+            # ".venv", plus caches/build output.
+            if any(
+                part.startswith(".venv") or part in {"__pycache__", "build", "dist", ".git"}
+                for part in py_file.parts
+            ):
                 continue
             for lineno, line in enumerate(py_file.read_text().splitlines(), start=1):
                 match = IMPORT_RE.match(line)

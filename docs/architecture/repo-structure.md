@@ -36,7 +36,7 @@ docs/                   projektweite Dokumentation (unverändert am Ort)
 | `apps/customer-app` (Flutter) | `packages/shared-contracts` (API-Vertrag) | jeden Python-Code direkt |
 | `apps/hq-frontend` | `apps/hq-backend`-API | `apps/customer-backend`-interne Module |
 
-Automatisiert geprüft für die Python-Pakete (`apps/customer-backend`, `apps/hq-backend`, `services/home-assistant-adapter`) durch [`scripts/check-import-boundaries.py`](../../scripts/check-import-boundaries.py):
+Automatisiert geprüft für die Python-Pakete (`apps/customer-backend`, `apps/hq-backend`, `services/home-assistant-adapter`) durch [`scripts/check-import-boundaries.py`](../../scripts/check-import-boundaries.py). **Hinweis (behobener Bug, 18.08.2026):** Der Skript-Ausschluss prüfte ursprünglich nur exakt `.venv` als Pfadkomponente — ein zweites, real existierendes venv namens `.venv312` (siehe `docs/architecture/data-model.md`, Python-3.14-Hinweis) wurde dadurch **nicht** ausgeschlossen und komplett mitgescannt (zehntausende installierte Paketdateien), was den Check von <1 s auf mehrere Minuten verlangsamte. Behoben durch `startswith(".venv")` statt Gleichheitsprüfung, plus Ausschluss von `__pycache__`/`build`/`dist`/`.git`.
 
 ```bash
 python3 scripts/check-import-boundaries.py
@@ -55,7 +55,7 @@ Für Flutter/Dart und für noch nicht implementierte Bereiche (`hq-frontend`, `w
 
 | Paket | Kommando | Ergebnis (17.08.2026) |
 |---|---|---|
-| `apps/customer-backend` | `pytest` (mit `DATABASE_URL` gesetzt, Python 3.12 empfohlen — siehe `docs/architecture/data-model.md` für einen Python-3.14-Sandbox-Hinweis; MQTT-Tests brauchen zusätzlich ein lokales `mosquitto`) | 101 passed (87 aus `S1V2-01-003`–`S1V2-02-007` + 14 neue Auth-Tests aus `S1V2-02-008`, siehe `docs/architecture/auth.md`) |
+| `apps/customer-backend` | `pytest` (mit `DATABASE_URL` gesetzt, Python 3.12 empfohlen — siehe `docs/architecture/data-model.md` für einen Python-3.14-Sandbox-Hinweis; MQTT-Tests brauchen zusätzlich ein lokales `mosquitto`) | 113 passed (101 aus `S1V2-01-003`–`S1V2-02-008` + 12 neue Rollenverwaltungs-Tests aus `S1V2-02-009`, siehe `docs/architecture/role-management.md`) |
 | `apps/hq-backend` | `pytest` | 1 passed |
 | `services/home-assistant-adapter` | `pytest` | 2 passed |
 | `infrastructure/docker-compose` | `docker compose config` | erfolgreich validiert |

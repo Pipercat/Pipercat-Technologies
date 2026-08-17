@@ -77,6 +77,21 @@ class SqlAlchemyUserRepository:
         )
         return frozenset(self._session.scalars(stmt))
 
+    def set_role(self, user_id: str, role_id: str) -> None:
+        user = self._session.get(User, uuid.UUID(user_id))
+        if user is not None:
+            user.role_id = uuid.UUID(role_id)
+            self._session.flush()
+
+
+class SqlAlchemyRoleRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def get_id_by_key(self, role_key: str) -> str | None:
+        role = self._session.scalars(select(Role).where(Role.key == role_key)).first()
+        return str(role.id) if role else None
+
 
 def _to_user_record(user: User) -> UserRecord:
     return UserRecord(
