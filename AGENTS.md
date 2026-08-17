@@ -83,6 +83,7 @@ Nach jeder Arbeitseinheit gilt die Testfrage: „Wenn ich jetzt sofort verschwin
 - [`docs/current-state.md`](docs/current-state.md) — Repository-Bestandsaufnahme (Notion-Aufgabe `S1V2-00-002`)
 - [`docs/product-manifest.md`](docs/product-manifest.md) — verbindliches Projektmanifest (Notion-Aufgabe `S1V2-00-003`)
 - [`docs/development-workflow.md`](docs/development-workflow.md) — Branch-/PR-Workflow, Lint/Test/Build-Kommandos, CI-Baseline (Notion-Aufgabe `S1V2-00-004`)
-- [`docs/architecture/adr-0001-systemone-pi-pilot.md`](docs/architecture/adr-0001-systemone-pi-pilot.md) — überholte Pilotarchitektur, teilweise ersetzt durch DEC-4/S1-03-001
-- [`docs/architecture/overview.md`](docs/architecture/overview.md) — Zielarchitektur-Skizze, teilweise veraltet gegenüber DEC-4
+- [`docs/architecture/adr-0002-home-assistant-backbone.md`](docs/architecture/adr-0002-home-assistant-backbone.md) — **verbindliche Zielarchitektur** (Notion-Aufgabe `S1V2-01-001`)
+- [`docs/architecture/adr-0001-systemone-pi-pilot.md`](docs/architecture/adr-0001-systemone-pi-pilot.md) — historische Pilotarchitektur, teilweise ersetzt durch ADR-0002
+- [`docs/architecture/overview.md`](docs/architecture/overview.md) — Kurzüberblick, verweist auf ADR-0002
 - Notion: Aufgaben-Datenbank, Entscheidungslog, „06 · Gründer-, Rechts- & Compliance-Fragen“
