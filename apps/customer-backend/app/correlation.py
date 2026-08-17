@@ -21,6 +21,8 @@ import uuid
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from .observability import correlation_id_var
+
 HEADER = "X-Correlation-Id"
 HEADER_BYTES = HEADER.lower().encode("latin-1")
 
@@ -37,6 +39,10 @@ class CorrelationIdMiddleware:
         request = Request(scope)
         correlation_id = request.headers.get(HEADER) or str(uuid.uuid4())
         scope.setdefault("state", {})["correlation_id"] = correlation_id
+        # Also available to structured logging anywhere in this request's
+        # call stack, without threading it through every function
+        # signature — see app/observability.py.
+        token = correlation_id_var.set(correlation_id)
 
         async def send_with_header(message: Message) -> None:
             if message["type"] == "http.response.start":
@@ -45,7 +51,10 @@ class CorrelationIdMiddleware:
                 message = {**message, "headers": headers}
             await send(message)
 
-        await self.app(scope, receive, send_with_header)
+        try:
+            await self.app(scope, receive, send_with_header)
+        finally:
+            correlation_id_var.reset(token)
 
 
 def get_correlation_id(request: Request) -> str:

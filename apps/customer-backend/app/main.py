@@ -20,9 +20,11 @@ from .envelope import ApiError, Envelope, ok
 from .events import DeviceStateEvent, event_bus
 from .features import require_feature
 from .idempotency import idempotency_store
+from .observability import configure_logging, metrics
 from .pagination import Page, paginate
 from .product_class import Feature, ProductClass, enabled_features
 
+configure_logging(component="customer-backend")
 logger = logging.getLogger("systemone.customer_backend")
 
 app = FastAPI(
@@ -30,6 +32,9 @@ app = FastAPI(
     version="0.1.0",
 )
 app.add_middleware(CorrelationIdMiddleware)
+
+metrics.register_gauge("events_in_memory", lambda: len(event_bus._events))  # type: ignore[attr-defined]
+metrics.register_gauge("idempotency_keys_cached", lambda: len(idempotency_store._store))  # type: ignore[attr-defined]
 
 
 # --- error envelope -----------------------------------------------------
@@ -51,7 +56,10 @@ async def http_exception_envelope(request: Request, exc: HTTPException) -> JSONR
 @app.exception_handler(ProductClassUnknownError)
 async def product_class_unknown_envelope(request: Request, exc: ProductClassUnknownError) -> JSONResponse:
     # Fail closed: an unconfigured/unknown product class is a hard 500, never
-    # a silent default to the most permissive class.
+    # a silent default to the most permissive class. Logged as a warning —
+    # this is an operator/provisioning problem worth surfacing, not just a
+    # client-visible error.
+    logger.warning("product_class_unknown")
     error = ApiError(code="PRODUCT_CLASS_UNKNOWN", message=str(exc), correlationId=get_correlation_id(request))
     return JSONResponse(status_code=500, content=Envelope(success=False, data=None, error=error).model_dump())
 
@@ -62,7 +70,11 @@ async def unhandled_exception_envelope(request: Request, exc: Exception) -> JSON
     # to the client. Full detail goes to the server log only, keyed by the
     # same correlation ID the client sees, per docs/architecture/api-contract.md.
     correlation_id = get_correlation_id(request)
-    logger.exception("unhandled_exception", extra={"correlationId": correlation_id})
+    # correlationId/component are attached automatically by
+    # CorrelationAndRedactionFilter (app/observability.py); the log message
+    # itself must stay generic — the real exception type is enough for
+    # server-side triage, its message might contain request data.
+    logger.error("unhandled_exception type=%s", type(exc).__name__)
     error = ApiError(
         code="INTERNAL_ERROR",
         message="Ein unerwarteter Fehler ist aufgetreten.",
@@ -90,6 +102,38 @@ class StatusData(BaseModel):
 @app.get("/api/v1/health", response_model=Envelope[HealthData])
 def health() -> Envelope[HealthData]:
     return ok(HealthData(status="ok"))
+
+
+@app.get("/api/v1/health/live", response_model=Envelope[HealthData])
+def health_live() -> Envelope[HealthData]:
+    """Liveness: is the process able to handle requests at all. Must never
+    depend on external systems (DB/MQTT/Home Assistant) — a dependency
+    outage must show up as 'not ready', not 'not alive'."""
+    return ok(HealthData(status="ok"))
+
+
+@app.get("/api/v1/health/ready", response_model=Envelope[HealthData])
+def health_ready() -> Envelope[HealthData]:
+    """Readiness: process is alive AND its dependencies are usable. No real
+    dependencies (PostgreSQL/MQTT/Home Assistant) exist yet (S1V2-02-*), so
+    this currently only reports the always-available in-memory subsystems.
+    Extend this function's checks — not a new endpoint — as each real
+    dependency lands."""
+    return ok(HealthData(status="ok"))
+
+
+class MetricsData(BaseModel):
+    values: dict[str, int | float | str]
+
+
+@app.get("/api/v1/metrics", response_model=Envelope[MetricsData])
+def metrics_snapshot() -> Envelope[MetricsData]:
+    """JSON metrics snapshot (see docs/architecture/observability.md for why
+    not Prometheus text format yet). Subsystems register their own gauges
+    via app.observability.metrics.register_gauge(); this endpoint has no
+    hardcoded knowledge of DB/MQTT/HA/backup — those register themselves
+    once they exist."""
+    return ok(MetricsData(values=metrics.snapshot()))
 
 
 @app.get("/api/v1/features", response_model=Envelope[FeaturesData])

@@ -55,7 +55,7 @@ Für Flutter/Dart und für noch nicht implementierte Bereiche (`hq-frontend`, `w
 
 | Paket | Kommando | Ergebnis (17.08.2026) |
 |---|---|---|
-| `apps/customer-backend` | `pytest` | 18 passed (siehe `docs/architecture/product-classes.md` für `S1V2-01-003` und `docs/architecture/api-contract.md` für die seit `S1V2-01-004` hinzugekommenen Envelope-/Event-/Pagination-/Idempotency-/Contract-Tests) |
+| `apps/customer-backend` | `pytest` | 27 passed (siehe `docs/architecture/product-classes.md` für `S1V2-01-003`, `docs/architecture/api-contract.md` für `S1V2-01-004`, `docs/architecture/observability.md` für die seit `S1V2-01-005` hinzugekommenen Health/Metrics/Logging-Tests) |
 | `apps/hq-backend` | `pytest` | 1 passed |
 | `services/home-assistant-adapter` | `pytest` | 2 passed |
 | `infrastructure/docker-compose` | `docker compose config` | erfolgreich validiert |
