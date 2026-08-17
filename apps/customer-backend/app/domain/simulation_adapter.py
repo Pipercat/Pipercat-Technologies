@@ -22,12 +22,19 @@ from .capabilities import (
     SetPositionCommand,
 )
 from .device import DomainDevice
-from .errors import CapabilityNotSupportedError, DeviceNotFoundError
+from .errors import CapabilityNotSupportedError, DeviceNotFoundError, TransientDeviceError
 
 
 class SimulationDeviceAdapter:
     def __init__(self) -> None:
         self._devices: dict[str, DomainDevice] = {}
+        # (device_id -> remaining injected transient failures), for tests
+        # that exercise AutomationEngine's retry behaviour (S1V2-02-005)
+        # without needing real flaky hardware.
+        self._fault_countdown: dict[str, int] = {}
+
+    def inject_transient_fault(self, device_id: str, *, times: int) -> None:
+        self._fault_countdown[device_id] = times
 
     def seed_lamp(self, name: str = "Simulated Lamp", room_id: str | None = None) -> DomainDevice:
         device = DomainDevice(
@@ -53,6 +60,11 @@ class SimulationDeviceAdapter:
             raise DeviceNotFoundError(device_id)
         if command.type not in device.capabilities:
             raise CapabilityNotSupportedError(device_id, command.type.value)
+
+        remaining = self._fault_countdown.get(device_id, 0)
+        if remaining > 0:
+            self._fault_countdown[device_id] = remaining - 1
+            raise TransientDeviceError(f"Simulated transient failure on '{device_id}' ({remaining} remaining)")
 
         if isinstance(command, SetOnOffCommand):
             new_state = OnOffState(is_on=command.is_on)
