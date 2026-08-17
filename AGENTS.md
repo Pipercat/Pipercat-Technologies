@@ -81,6 +81,7 @@ Nach jeder Arbeitseinheit gilt die Testfrage: „Wenn ich jetzt sofort verschwin
 ## Verweise
 
 - [`docs/current-state.md`](docs/current-state.md) — Repository-Bestandsaufnahme (Notion-Aufgabe `S1V2-00-002`)
+- [`docs/product-manifest.md`](docs/product-manifest.md) — verbindliches Projektmanifest (Notion-Aufgabe `S1V2-00-003`)
 - [`docs/architecture/adr-0001-systemone-pi-pilot.md`](docs/architecture/adr-0001-systemone-pi-pilot.md) — überholte Pilotarchitektur, teilweise ersetzt durch DEC-4/S1-03-001
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — Zielarchitektur-Skizze, teilweise veraltet gegenüber DEC-4
 - Notion: Aufgaben-Datenbank, Entscheidungslog, „06 · Gründer-, Rechts- & Compliance-Fragen“
