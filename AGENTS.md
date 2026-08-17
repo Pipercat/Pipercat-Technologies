@@ -97,6 +97,7 @@ Nach jeder Arbeitseinheit gilt die Testfrage: „Wenn ich jetzt sofort verschwin
 - [`docs/architecture/mqtt-eventbus.md`](docs/architecture/mqtt-eventbus.md) — Topic-Konvention, QoS/Retain, Reconnect/Duplicate-Delivery/Offline, `MqttEventBus` (Notion-Aufgabe `S1V2-02-004`)
 - [`docs/architecture/automation-engine.md`](docs/architecture/automation-engine.md) — Trigger/Bedingungen/Aktionen, Capability-Validierung, Retry-Regeln, Ausführungshistorie (Notion-Aufgabe `S1V2-02-005`)
 - [`docs/architecture/self-healing-service.md`](docs/architecture/self-healing-service.md) — Severity, Allowlist sicherer Aktionen, Audit, Wiederholungsalarm (Notion-Aufgabe `S1V2-02-006`)
+- [`docs/architecture/emergency-mode.md`](docs/architecture/emergency-mode.md) — Notfallmodus-Zustände, manueller/automatischer Eintritt, Neustart-Sicherheit, Freigabepflicht (Notion-Aufgabe `S1V2-02-007`)
 - [`docs/architecture/adr-0002-home-assistant-backbone.md`](docs/architecture/adr-0002-home-assistant-backbone.md) — **verbindliche Zielarchitektur** (Notion-Aufgabe `S1V2-01-001`)
 - [`docs/architecture/adr-0001-systemone-pi-pilot.md`](docs/architecture/adr-0001-systemone-pi-pilot.md) — historische Pilotarchitektur, teilweise ersetzt durch ADR-0002
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — Kurzüberblick, verweist auf ADR-0002
