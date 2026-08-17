@@ -10,9 +10,18 @@ Das oben dargestellte Logo ist das aktuell verbindliche Firmenlogo von **Piperca
 
 ## Offizielles Pipercat-Icon
 
-`pipercat-icon.png` ist das kompakte Pipercat-Symbol **ohne Schriftzug**. Es wird für kleine Markenflächen, Icons und die Notion-Unterseiten verwendet. Dort steht es klein neben dem SystemONE-/S1-Logo oben rechts.
+`pipercat-icon.png` ist das kompakte Pipercat-Symbol **ohne Schriftzug**. Es wird für kleine Markenflächen, Icons und die Notion-Unterseiten verwendet. Dort steht es klein neben dem SystemONE-/S1-Icon oben rechts.
 
 `pipercat-symbol.svg` bleibt nur noch als ältere technische Legacy-/Fallback-Variante bestehen.
+
+## SystemONE-Branding
+
+Die offiziellen SystemONE-Assets sind ebenfalls zentral in diesem Branding-Ordner referenziert:
+
+- `systemone-logo.svg` – vollständiges SystemONE-Logo; Quelle: `Pipercat/SystemONE/Generator_3/logo/logo_groß.png`
+- `systemone-icon.svg` – kompaktes S1-/SystemONE-Schild; Quelle: `Pipercat/SystemONE/Generator_3/logo/logo_schild.png`
+
+Für neue Pipercat-Dokumentation und Notion-Seiten sollen diese zentralen Branding-Pfade aus **Pipercat/Pipercat-Technologies** verwendet werden, statt direkt auf den alten Generator-Ordner zu verlinken.
 
 ## Markenbild
 
@@ -26,7 +35,8 @@ Pipercat Technologies soll seriös, technisch, modern und vertrauenswürdig auft
 - klare Linien
 - viel Weißraum
 - vollständiges Firmenlogo auf Hauptseiten und Geschäftsdokumenten
-- kleines Pipercat-Icon auf Unterseiten neben dem S1-Logo
+- kleines Pipercat-Icon auf Unterseiten neben dem S1-/SystemONE-Icon
+- beide kleinen Icons auf Unterseiten optisch gleich groß darstellen
 - keine Beschriftungen direkt unter kleinen Icon-Logos
 - keine Logos als zugeschnittenes Notion-Cover verwenden
 - keine verspielten Effekte
