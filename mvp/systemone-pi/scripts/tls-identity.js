@@ -1,0 +1,3 @@
+#!/usr/bin/env node
+const path=require('path');const{provisionIdentity,renewIdentity,revokeIdentity,certificateStatus}=require('../lib/tls-identity');
+const command=process.argv[2]||'status',dir=process.env.SYSTEMONE_TLS_DIR||path.join(__dirname,'../data/tls'),hostname=process.env.SYSTEMONE_HOSTNAME||'systemone.local';let result;if(command==='provision')result=provisionIdentity(dir,{hostname});else if(command==='renew')result=renewIdentity(dir);else if(command==='revoke')result=revokeIdentity(dir);else if(command==='status')result=certificateStatus(dir);else throw new Error('Erlaubt: provision, renew, revoke, status');console.log(JSON.stringify(result,null,2));

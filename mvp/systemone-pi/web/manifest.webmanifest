@@ -1,0 +1,13 @@
+{
+  "id": "/",
+  "name": "SystemONE Pi",
+  "short_name": "SystemONE",
+  "description": "Lokale Smart-Home-App ohne verpflichtendes Cloudkonto",
+  "start_url": "/#overview",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#101522",
+  "theme_color": "#101522",
+  "orientation": "portrait-primary",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

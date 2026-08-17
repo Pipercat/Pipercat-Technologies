@@ -1,0 +1,29 @@
+{
+  "name": "systemone-pi-mvp",
+  "version": "0.4.0",
+  "private": true,
+  "description": "Local-first SystemONE Pi MVP with hardware-safe simulation, diagnostics and guided onboarding",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "check": "node --check server.js && for file in lib/*.js web/*.js scripts/*.js; do node --check \"$file\"; done",
+    "test": "node scripts/selftest.js",
+    "verify": "npm run check && npm run secrets:check && npm run secrets:history && npm test",
+    "release:audit": "node scripts/release-audit.js",
+    "config:check": "node scripts/check-runtime-config.js",
+    "secrets:check": "node scripts/secret-preflight.js",
+    "secrets:history": "node scripts/secret-history-preflight.js",
+    "release:build": "node scripts/build-release-bundle.js",
+    "release:verify": "npm run check && npm test && node scripts/verify-release-bundle.js",
+    "pilot:dry-run": "node scripts/pilot-dry-run.js"
+    ,"recovery:open": "node scripts/open-recovery.js"
+    ,"tls:provision": "node scripts/tls-identity.js provision"
+    ,"tls:renew": "node scripts/tls-identity.js renew"
+    ,"tls:revoke": "node scripts/tls-identity.js revoke"
+    ,"tls:status": "node scripts/tls-identity.js status"
+  },
+  "dependencies": {
+    "qrcode": "1.5.4"
+  },
+  "engines": { "node": ">=20" }
+}

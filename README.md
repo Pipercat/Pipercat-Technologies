@@ -28,8 +28,12 @@ Pipercat Technologies entwickelt modulare Smart-Home-, Homeserver-, Netzwerk- un
 - [Master-Dokumentation](docs/PIPERCAT_MASTER_DOCUMENTATION.md)
 - [Unternehmenskonzept](docs/company/overview.md)
 - [Produktübersicht](docs/products/index.md)
+- [SystemONE-Pi-MVP-Scope](docs/products/systemone-pi-mvp-scope.md)
+- [Geräte- und Herstellermatrix](docs/products/systemone-compatibility-matrix.md)
 - [Architektur](docs/architecture/overview.md)
+- [Pilotarchitektur-Entscheidung](docs/architecture/adr-0001-systemone-pi-pilot.md)
 - [Sicherheit und Datenschutz](docs/security/baseline.md)
+- [SystemONE Pi Recovery-Konzept](docs/security/systemone-pi-recovery.md)
 - [Preismodell](docs/pricing/pricing.md)
 - [Roadmap](ROADMAP.md)
 - [Rechtliche Arbeitsentwürfe](docs/legal/README.md)
@@ -43,6 +47,6 @@ Notion ist die operative Quelle für aktuelle Produktentscheidungen und Roadmap.
 
 ## Status
 
-Stand August 2026 – Produktstrategie, Local-first-Architektur, SystemONE-Produktfamilie, MVP-Abgrenzung und technischer Zielstack sind konsolidiert. Der aktuelle Entwicklungsfokus liegt auf SystemONE Pi und dem vertikalen Philips-Hue-Prototyp.
+Der SystemONE-Pi-Core v0.4.0 wird auf dem Branch `mvp/systemone-pi-v0.1` als geschlossener, lokaler Pilot entwickelt. Die [Pilotarchitektur](docs/architecture/adr-0001-systemone-pi-pilot.md) ist verbindlich festgelegt. Zugriffsschutz, TLS/Geräteidentität, signierte Updates und das A/B-Rollback-Modell sind implementiert und hardwarefrei getestet (295/295 Selftests). Vor der Pilotfreigabe fehlt ausschließlich der praktische Nachweis auf echter Hardware bzw. mit echten Personen: reale Hue-Hardwarevalidierung, ein A/B-Stromausfalltest auf dem Ziel-Pi sowie ein externer Verständlichkeitstest der Bedienungsanleitung — siehe [Implementierungsstatus](IMPLEMENTATION_STATUS.md).
 
 > Rechtlicher Hinweis: Dieses Repository enthält unverbindliche Arbeitsentwürfe und keine Rechts- oder Steuerberatung. Rechtliche Dokumente müssen vor Verwendung fachkundig geprüft werden.

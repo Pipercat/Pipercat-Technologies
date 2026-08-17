@@ -5,13 +5,14 @@
 - Unternehmens- und Produktdokumentation vervollständigen
 - Gewerbeanmeldung vorbereiten
 - Markenname, Domain und Grunddesign prüfen
-- SystemONE-Pilotarchitektur festlegen
+- SystemONE-Pilotarchitektur gemäß ADR-0001 beibehalten und Modulgrenzen prüfen
 - ersten Raspberry-Pi-Prototyp definieren
 
 ## 90 Tage
 
 - SystemONE Pi als reproduzierbaren Prototyp aufbauen
-- Home Assistant, Pi-hole und Fernwartung integrieren
+- Hue-Vertikalpfad, sichere lokale Administration und Wiederherstellung abschließen
+- Pi-hole als optionales Modul prototypisieren
 - Updatefreigabe und Backup vor Änderungen testen
 - ersten Pilotkundenprozess dokumentieren
 - YouDo- und Digital-Screen-MVP zuschneiden
@@ -56,6 +57,8 @@
 - Ausbau für anspruchsvolle Privatkunden und Unternehmen
 
 ## Priorisiertes MVP
+
+Die technische Reihenfolge für den Pi-Pilot folgt [ADR-0001](docs/architecture/adr-0001-systemone-pi-pilot.md). Eine Home-Assistant-, FastAPI- oder PostgreSQL-Migration ist kein paralleler Pilotpfad.
 
 1. sichere Geräteidentität
 2. Kunden- und Geräteverwaltung
