@@ -4,7 +4,7 @@ Gemeinsame API-/Event-Verträge und Modelle, die von mehreren SystemONE-Paketen 
 
 ## Inhalt
 
-- `openapi/systemone-api-v1.yaml` — SystemONE-API-v1-Vertrag (`success/data/error`-Antwortformat, siehe ADR-0001/ADR-0002). Wird in `S1V2-01-004` vollständig ausdefiniert; aktuell nur Gerüst mit dem Health-Endpunkt, der bereits in `apps/customer-backend` und `apps/hq-backend` existiert.
+- `openapi/systemone-api-v1.yaml` — schlanker, handgeschriebener Cross-Service-Referenzentwurf (`success/data/error`-Antwortformat, siehe ADR-0001/ADR-0002), u. a. für `apps/hq-backend`, das noch keine Endpunkte über den Health-Check hinaus hat. **Für `apps/customer-backend` ist das lebende, maßgebliche Schema ab `S1V2-01-004` `app.openapi()` / `GET /openapi.json`** — vollständiger Vertrag (Envelope, Fehlerformat, Events, Pagination, Idempotency, Concurrency) in [`../../docs/architecture/api-contract.md`](../../docs/architecture/api-contract.md). Diese YAML-Datei bewusst nicht synthetisch nachgezogen, um keine zwei parallel zu pflegenden Wahrheiten zu erzeugen.
 
 ## Grenzen
 

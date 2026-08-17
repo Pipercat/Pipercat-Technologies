@@ -85,6 +85,7 @@ Nach jeder Arbeitseinheit gilt die Testfrage: „Wenn ich jetzt sofort verschwin
 - [`docs/development-workflow.md`](docs/development-workflow.md) — Branch-/PR-Workflow, Lint/Test/Build-Kommandos, CI-Baseline (Notion-Aufgabe `S1V2-00-004`)
 - [`docs/architecture/repo-structure.md`](docs/architecture/repo-structure.md) — Verzeichnisstruktur `apps/`/`services/`/`packages/`/`infrastructure/`, Importgrenzen (Notion-Aufgabe `S1V2-01-002`)
 - [`docs/architecture/product-classes.md`](docs/architecture/product-classes.md) — Produktklassen-/Feature-Flag-Matrix Pi/Mini/Server/Rack (Notion-Aufgabe `S1V2-01-003`)
+- [`docs/architecture/api-contract.md`](docs/architecture/api-contract.md) — API-v1-Envelope, Fehlerformat, Events, Pagination, Idempotency, Concurrency, Versionierung (Notion-Aufgabe `S1V2-01-004`)
 - [`docs/architecture/adr-0002-home-assistant-backbone.md`](docs/architecture/adr-0002-home-assistant-backbone.md) — **verbindliche Zielarchitektur** (Notion-Aufgabe `S1V2-01-001`)
 - [`docs/architecture/adr-0001-systemone-pi-pilot.md`](docs/architecture/adr-0001-systemone-pi-pilot.md) — historische Pilotarchitektur, teilweise ersetzt durch ADR-0002
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — Kurzüberblick, verweist auf ADR-0002
