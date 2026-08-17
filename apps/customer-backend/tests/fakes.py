@@ -6,7 +6,7 @@ No database, no SQLAlchemy import anywhere in this file.
 import uuid
 
 from app.audit import InMemoryAuditRecorder
-from app.repositories.records import DeviceRecord, RoomRecord
+from app.repositories.records import DeviceRecord, RoomRecord, UserRecord
 
 
 class FakeRoomRepository:
@@ -50,6 +50,24 @@ class FakeDeviceRepository:
         return [d for d in self._devices.values() if d.household_id == household_id]
 
 
+class FakeUserRepository:
+    def __init__(self) -> None:
+        self._users: dict[str, UserRecord] = {}
+        self._role_permissions: dict[str, frozenset[str]] = {}
+
+    def add(self, user: UserRecord) -> None:
+        self._users[user.id] = user
+
+    def set_role_permissions(self, role_id: str, permissions: frozenset[str]) -> None:
+        self._role_permissions[role_id] = permissions
+
+    def get_by_id(self, user_id: str) -> UserRecord | None:
+        return self._users.get(user_id)
+
+    def get_permissions_for_role(self, role_id: str) -> frozenset[str]:
+        return self._role_permissions.get(role_id, frozenset())
+
+
 class FakeUnitOfWork:
     """committed/rolled_back flags let tests assert transaction discipline
     without a real database."""
@@ -57,6 +75,7 @@ class FakeUnitOfWork:
     def __init__(self) -> None:
         self.rooms = FakeRoomRepository()
         self.devices = FakeDeviceRepository()
+        self.users = FakeUserRepository()
         self.committed = False
         self.rolled_back = False
 
@@ -80,4 +99,11 @@ def make_actor(*permissions: str) -> "Actor":
     return Actor(user_id=str(uuid.uuid4()), permissions=frozenset(permissions))
 
 
-__all__ = ["FakeRoomRepository", "FakeDeviceRepository", "FakeUnitOfWork", "InMemoryAuditRecorder", "make_actor"]
+__all__ = [
+    "FakeRoomRepository",
+    "FakeDeviceRepository",
+    "FakeUserRepository",
+    "FakeUnitOfWork",
+    "InMemoryAuditRecorder",
+    "make_actor",
+]

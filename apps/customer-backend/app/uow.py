@@ -7,13 +7,18 @@ from typing import Protocol
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.repositories.protocols import DeviceRepository, RoomRepository
-from app.repositories.sqlalchemy_repo import SqlAlchemyDeviceRepository, SqlAlchemyRoomRepository
+from app.repositories.protocols import DeviceRepository, RoomRepository, UserRepository
+from app.repositories.sqlalchemy_repo import (
+    SqlAlchemyDeviceRepository,
+    SqlAlchemyRoomRepository,
+    SqlAlchemyUserRepository,
+)
 
 
 class UnitOfWork(Protocol):
     rooms: RoomRepository
     devices: DeviceRepository
+    users: UserRepository
 
     def __enter__(self) -> "UnitOfWork": ...
 
@@ -33,6 +38,7 @@ class SqlAlchemyUnitOfWork:
         self.session = self._session_factory()
         self.rooms = SqlAlchemyRoomRepository(self.session)
         self.devices = SqlAlchemyDeviceRepository(self.session)
+        self.users = SqlAlchemyUserRepository(self.session)
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:

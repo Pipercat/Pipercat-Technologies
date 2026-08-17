@@ -24,3 +24,13 @@ class DeviceRecord:
     external_id: str
     name: str
     device_type: str
+
+
+@dataclass(frozen=True)
+class UserRecord:
+    id: str
+    household_id: str
+    role_id: str
+    display_name: str
+    password_hash: str | None
+    pin_hash: str | None

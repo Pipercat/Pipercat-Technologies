@@ -1,21 +1,31 @@
-"""Authorization at the use-case boundary (S1V2-02-003):
-"Autorisierung an Use-Case-Grenzen, nicht nur UI/API-Router" - every
-service method that changes state or reads sensitive data calls
+"""Authorization at the use-case boundary (S1V2-02-003, sessions wired up in
+S1V2-02-008): "Autorisierung an Use-Case-Grenzen, nicht nur UI/API-Router" -
+every service method that changes state or reads sensitive data calls
 require_permission() itself. An API route being reachable is not
 authorization; the use case enforces it independently.
-
-Full role/permission persistence and session-derived Actors land with
-S1V2-02-008/-009. For now, Actor is a plain, framework-agnostic value the
-caller constructs from whatever auth context exists at the time.
 """
 
 from dataclasses import dataclass
+
+
+class WildcardPermissionError(ValueError):
+    """"Kein Kunden-Root" (S1V2-02-008): no Actor may ever hold a wildcard
+    permission that bypasses individual checks - every grant must be an
+    enumerable, specific permission string. Enforced here, not just by
+    convention, so a future role definition cannot silently introduce one."""
+
+    def __init__(self) -> None:
+        super().__init__("Wildcard permissions ('*') are not allowed - grant specific permissions instead.")
 
 
 @dataclass(frozen=True)
 class Actor:
     user_id: str
     permissions: frozenset[str]
+
+    def __post_init__(self) -> None:
+        if "*" in self.permissions:
+            raise WildcardPermissionError()
 
 
 class AuthorizationError(PermissionError):

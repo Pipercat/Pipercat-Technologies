@@ -6,9 +6,9 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Device, Room
+from app.db.models import Device, Permission, Role, RolePermission, Room, User
 
-from .records import DeviceRecord, RoomRecord
+from .records import DeviceRecord, RoomRecord, UserRecord
 
 
 class SqlAlchemyRoomRepository:
@@ -56,6 +56,37 @@ class SqlAlchemyDeviceRepository:
     def list_by_household(self, household_id: str) -> list[DeviceRecord]:
         stmt = select(Device).where(Device.household_id == uuid.UUID(household_id), Device.deleted_at.is_(None))
         return [_to_device_record(d) for d in self._session.scalars(stmt)]
+
+
+class SqlAlchemyUserRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def get_by_id(self, user_id: str) -> UserRecord | None:
+        user = self._session.get(User, uuid.UUID(user_id))
+        if user is None or user.deleted_at is not None:
+            return None
+        return _to_user_record(user)
+
+    def get_permissions_for_role(self, role_id: str) -> frozenset[str]:
+        stmt = (
+            select(Permission.key)
+            .join(RolePermission, RolePermission.permission_id == Permission.id)
+            .join(Role, Role.id == RolePermission.role_id)
+            .where(Role.id == uuid.UUID(role_id))
+        )
+        return frozenset(self._session.scalars(stmt))
+
+
+def _to_user_record(user: User) -> UserRecord:
+    return UserRecord(
+        id=str(user.id),
+        household_id=str(user.household_id),
+        role_id=str(user.role_id),
+        display_name=user.display_name,
+        password_hash=user.password_hash,
+        pin_hash=user.pin_hash,
+    )
 
 
 def _to_room_record(room: Room) -> RoomRecord:

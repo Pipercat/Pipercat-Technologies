@@ -5,7 +5,7 @@ never on SQLAlchemy directly, so unit tests can substitute in-memory fakes
 
 from typing import Protocol
 
-from .records import DeviceRecord, RoomRecord
+from .records import DeviceRecord, RoomRecord, UserRecord
 
 
 class RoomRepository(Protocol):
@@ -22,3 +22,9 @@ class DeviceRepository(Protocol):
     def get_by_external_id(self, integration_id: str, external_id: str) -> DeviceRecord | None: ...
 
     def list_by_household(self, household_id: str) -> list[DeviceRecord]: ...
+
+
+class UserRepository(Protocol):
+    def get_by_id(self, user_id: str) -> UserRecord | None: ...
+
+    def get_permissions_for_role(self, role_id: str) -> frozenset[str]: ...
