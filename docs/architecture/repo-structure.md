@@ -55,7 +55,7 @@ Für Flutter/Dart und für noch nicht implementierte Bereiche (`hq-frontend`, `w
 
 | Paket | Kommando | Ergebnis (17.08.2026) |
 |---|---|---|
-| `apps/customer-backend` | `pytest` (mit `DATABASE_URL` gesetzt, Python 3.12 empfohlen — siehe `docs/architecture/data-model.md` für einen Python-3.14-Sandbox-Hinweis) | 56 passed (48 aus `S1V2-01-003`–`S1V2-02-002` + 8 neue Service-/Repository-/UoW-Tests aus `S1V2-02-003`, siehe `docs/architecture/service-repository-layer.md`) |
+| `apps/customer-backend` | `pytest` (mit `DATABASE_URL` gesetzt, Python 3.12 empfohlen — siehe `docs/architecture/data-model.md` für einen Python-3.14-Sandbox-Hinweis; MQTT-Tests brauchen zusätzlich ein lokales `mosquitto`) | 59 passed (56 aus `S1V2-01-003`–`S1V2-02-003` + 3 neue MQTT-Integrationstests aus `S1V2-02-004`, siehe `docs/architecture/mqtt-eventbus.md`) |
 | `apps/hq-backend` | `pytest` | 1 passed |
 | `services/home-assistant-adapter` | `pytest` | 2 passed |
 | `infrastructure/docker-compose` | `docker compose config` | erfolgreich validiert |

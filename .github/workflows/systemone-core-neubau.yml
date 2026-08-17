@@ -58,6 +58,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      # Installed directly (not a service container): the S1V2-02-004 MQTT
+      # tests stop/restart the broker mid-test to prove reconnect/offline
+      # behaviour, which needs process control a service container doesn't
+      # give the job.
+      - run: sudo apt-get update && sudo apt-get install -y mosquitto
       - run: pip install -e ".[dev]"
       - run: pytest -q
 
