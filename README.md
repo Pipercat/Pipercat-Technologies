@@ -1,5 +1,9 @@
 # Pipercat Technologies
 
+<p align="center">
+  <img src="branding/pipercat-technologies-logo.svg" alt="Pipercat Technologies Logo" width="720">
+</p>
+
 > **Ein System. Beliebige Hardware. Erweiterbare Module. Zentrale Verwaltung.**
 
 Pipercat Technologies entwickelt modulare Smart-Home-, Homeserver-, Netzwerk- und KI-Systeme. Das Unternehmen befindet sich aktuell in der Konzept-, Entwicklungs- und Aufbauphase.
