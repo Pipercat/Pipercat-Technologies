@@ -44,6 +44,10 @@ Sobald im Rahmen von `S1V2-01-002` ff. neue Verzeichnisse (`apps/`, `services/`,
 - **Erweiterungsregel:** Jede weitere neue App/jeder neue Service (Abschnitt 2.2) bekommt einen eigenen Job in `systemone-core-neubau.yml` (oder einen neuen Workflow, falls thematisch sinnvoll getrennt) nach demselben Muster. Ein neuer CI-Job wird **im selben PR** eingeführt, der die neue App/den neuen Service anlegt — nicht nachträglich.
 - **Kein grüner Merge ohne grüne CI.** Ein rot laufender Pflicht-Check (Lint, Test, Migration, Build) blockiert den Merge; das gilt für jeden Job in beiden Workflow-Dateien identisch.
 
+## 3a. Betriebshinweis: Python-Version für `apps/customer-backend`
+
+CI nutzt Python 3.12 (`.github/workflows/systemone-core-neubau.yml`). Für lokale Entwicklung ebenfalls **Python 3.12 empfohlen** — unter Python 3.14 wurde in einer KI-Sandbox ein reproduzierbarer `pytest`-Collection-Hänger speziell für die PostgreSQL-Tests beobachtet (kein Repository-Fehler, Details inkl. Diagnose in [`docs/architecture/data-model.md`](architecture/data-model.md)).
+
 ## 4. Betriebshinweis: `git cat-file --batch` in KI-Sandbox-Umgebungen
 
 Beim Ausführen von `npm run verify` in dieser (und ggf. anderen) KI-Coding-Sandbox-Umgebungen kann der Schritt `secrets:history` (`scripts/secret-history-preflight.js`, nutzt `git cat-file --batch`/`--batch-check` über eine Pipe) hängen bleiben, obwohl das Repository klein ist (siehe `current-state.md`, Abschnitt 5, für die Reproduktion). Das ist bislang ausschließlich in dieser Art Sandbox beobachtet, nicht in reale GitHub-Actions-Läufen. **Vorgehen für KI-Agenten in einer Sandbox:** `npm run check`, `npm run secrets:check` und `npm test` einzeln ausführen (funktioniert zuverlässig) und `secrets:history` entweder auslassen und den Befund dokumentieren, oder — falls die Sandbox es erlaubt — mit großzügigem Timeout separat versuchen. Kein Grund, den Schritt aus der CI-Definition selbst zu entfernen; er bleibt für reale CI-Läufer aktiv.

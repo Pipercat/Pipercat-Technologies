@@ -56,6 +56,10 @@ SystemONE ist local-first. Ein Kundensystem darf für seine Kernfunktionen nicht
 - Kein `Done` bei fehlschlagenden Tests, bekannten Fehlern oder TODO-Platzhaltern für Pflichtfunktionen.
 - „Code kompiliert“ bedeutet nicht automatisch `Done`.
 
+## 6a. Notion-Statuspflege
+
+Beim **Start** einer Aufgabe sofort `Status` auf `In progress` setzen (plus `Bearbeitet von`/`Bearbeitet am`) — nicht erst am Ende. Erst nach vollständigem Abschluss (Definition of Done erfüllt, siehe Abschnitt 8) auf `Done` setzen. So bleibt in Notion jederzeit sichtbar, woran gerade gearbeitet wird, auch wenn eine Aufgabe mehrere Arbeitsschritte/Turns braucht.
+
 ## 7. Dokumentationspflicht pro Aufgabe
 
 Bei jeder bearbeiteten Notion-Aufgabe zwingend ergänzen: `Ergebnis`, `Geänderte Dateien`, `Architekturentscheidungen` (nur technische Detailentscheidungen innerhalb der bereits beschlossenen Architektur), `Migrationen`, `Tests`, `Sicherheitsprüfung`, `Bekannte Grenzen/offene Punkte`, `Rollback`, `Git` (Branch/Commit/PR) und eine kurze **Übergabe an nächste KI/Entwickler** (3–10 Sätze: Stand, nächste Schritte, Stolperfallen).
@@ -87,6 +91,7 @@ Nach jeder Arbeitseinheit gilt die Testfrage: „Wenn ich jetzt sofort verschwin
 - [`docs/architecture/product-classes.md`](docs/architecture/product-classes.md) — Produktklassen-/Feature-Flag-Matrix Pi/Mini/Server/Rack (Notion-Aufgabe `S1V2-01-003`)
 - [`docs/architecture/api-contract.md`](docs/architecture/api-contract.md) — API-v1-Envelope, Fehlerformat, Events, Pagination, Idempotency, Concurrency, Versionierung (Notion-Aufgabe `S1V2-01-004`)
 - [`docs/architecture/observability.md`](docs/architecture/observability.md) — Health/Ready/Live, strukturierte Logs, Secret-Redaction, Metriken (Notion-Aufgabe `S1V2-01-005`) — **damit ist Phase „01 Fundament“ vollständig Done**
+- [`docs/architecture/data-model.md`](docs/architecture/data-model.md) — PostgreSQL-Schema, Alembic-Migrationsstrategie, inkl. Sandbox-Hinweis zu Python 3.14 (Notion-Aufgabe `S1V2-02-001`)
 - [`docs/architecture/adr-0002-home-assistant-backbone.md`](docs/architecture/adr-0002-home-assistant-backbone.md) — **verbindliche Zielarchitektur** (Notion-Aufgabe `S1V2-01-001`)
 - [`docs/architecture/adr-0001-systemone-pi-pilot.md`](docs/architecture/adr-0001-systemone-pi-pilot.md) — historische Pilotarchitektur, teilweise ersetzt durch ADR-0002
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — Kurzüberblick, verweist auf ADR-0002

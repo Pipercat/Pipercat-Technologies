@@ -1,5 +1,6 @@
 # Python (apps/customer-backend, apps/hq-backend, services/home-assistant-adapter)
 .venv/
+.venv*/
 __pycache__/
 *.pyc
 *.egg-info/
