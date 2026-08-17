@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="320" viewBox="0 0 1600 320">
+  <defs>
+    <clipPath id="s1clip">
+      <rect x="1230" y="70" width="150" height="150" rx="18"/>
+    </clipPath>
+  </defs>
+  <!-- Transparent Notion subpage header. Branding is intentionally placed at the far right. -->
+  <g clip-path="url(#s1clip)">
+    <image href="https://raw.githubusercontent.com/Pipercat/SystemONE/main/Generator_3/logo/logo_schild.png"
+           x="1080" y="-80" width="450" height="450" preserveAspectRatio="xMidYMid meet"/>
+  </g>
+  <image href="https://raw.githubusercontent.com/Pipercat/Pipercat-Technologies/main/branding/pipercat-icon.png"
+         x="1410" y="70" width="150" height="150" preserveAspectRatio="xMidYMid meet"/>
+</svg>
