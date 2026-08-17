@@ -92,6 +92,7 @@ Nach jeder Arbeitseinheit gilt die Testfrage: „Wenn ich jetzt sofort verschwin
 - [`docs/architecture/api-contract.md`](docs/architecture/api-contract.md) — API-v1-Envelope, Fehlerformat, Events, Pagination, Idempotency, Concurrency, Versionierung (Notion-Aufgabe `S1V2-01-004`)
 - [`docs/architecture/observability.md`](docs/architecture/observability.md) — Health/Ready/Live, strukturierte Logs, Secret-Redaction, Metriken (Notion-Aufgabe `S1V2-01-005`) — **damit ist Phase „01 Fundament“ vollständig Done**
 - [`docs/architecture/data-model.md`](docs/architecture/data-model.md) — PostgreSQL-Schema, Alembic-Migrationsstrategie, inkl. Sandbox-Hinweis zu Python 3.14 (Notion-Aufgabe `S1V2-02-001`)
+- [`docs/architecture/domain-device-model.md`](docs/architecture/domain-device-model.md) — Device Model, Capability-Typen, `DeviceAdapterPort`, Simulationsadapter (Notion-Aufgabe `S1V2-02-002`)
 - [`docs/architecture/adr-0002-home-assistant-backbone.md`](docs/architecture/adr-0002-home-assistant-backbone.md) — **verbindliche Zielarchitektur** (Notion-Aufgabe `S1V2-01-001`)
 - [`docs/architecture/adr-0001-systemone-pi-pilot.md`](docs/architecture/adr-0001-systemone-pi-pilot.md) — historische Pilotarchitektur, teilweise ersetzt durch ADR-0002
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — Kurzüberblick, verweist auf ADR-0002

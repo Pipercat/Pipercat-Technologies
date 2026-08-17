@@ -16,6 +16,9 @@ from pydantic import BaseModel
 
 from .correlation import CorrelationIdMiddleware, get_correlation_id
 from .device_identity import ProductClassUnknownError, get_product_class
+from .domain import CapabilityNotSupportedError, DeviceNotFoundError, DeviceService, DomainDevice
+from .domain.capabilities import CapabilityCommand, CapabilityState
+from .domain.simulation_adapter import SimulationDeviceAdapter
 from .envelope import ApiError, Envelope, ok
 from .events import DeviceStateEvent, event_bus
 from .features import require_feature
@@ -36,6 +39,13 @@ app.add_middleware(CorrelationIdMiddleware)
 metrics.register_gauge("events_in_memory", lambda: len(event_bus._events))  # type: ignore[attr-defined]
 metrics.register_gauge("idempotency_keys_cached", lambda: len(idempotency_store._store))  # type: ignore[attr-defined]
 
+# Simulation-backed for now (S1V2-02-002). Swapped for a HomeAssistantAdapter-
+# backed DeviceService in S1V2-02-016 ff. — the /api/v1/devices* routes below
+# do not change when that happens, only this wiring does.
+_device_adapter = SimulationDeviceAdapter()
+_device_adapter.seed_lamp(name="Wohnzimmerlampe (Simulation)")
+device_service = DeviceService(_device_adapter)
+
 
 # --- error envelope -----------------------------------------------------
 
@@ -51,6 +61,20 @@ async def http_exception_envelope(request: Request, exc: HTTPException) -> JSONR
         status_code=exc.status_code,
         content=Envelope(success=False, data=None, error=error).model_dump(),
     )
+
+
+@app.exception_handler(DeviceNotFoundError)
+async def device_not_found_envelope(request: Request, exc: DeviceNotFoundError) -> JSONResponse:
+    error = ApiError(code="DEVICE_NOT_FOUND", message=str(exc), correlationId=get_correlation_id(request))
+    return JSONResponse(status_code=404, content=Envelope(success=False, data=None, error=error).model_dump())
+
+
+@app.exception_handler(CapabilityNotSupportedError)
+async def capability_not_supported_envelope(request: Request, exc: CapabilityNotSupportedError) -> JSONResponse:
+    error = ApiError(
+        code="CAPABILITY_NOT_SUPPORTED", message=str(exc), correlationId=get_correlation_id(request)
+    )
+    return JSONResponse(status_code=400, content=Envelope(success=False, data=None, error=error).model_dump())
 
 
 @app.exception_handler(ProductClassUnknownError)
@@ -161,6 +185,22 @@ def nas_status() -> Envelope[StatusData]:
 def local_ai_status() -> Envelope[StatusData]:
     """Example feature-gated endpoint (Server/Rack only)."""
     return ok(StatusData(status="not-implemented-yet"))
+
+
+# --- devices (S1V2-02-002 domain layer) ------------------------------------
+
+
+@app.get("/api/v1/devices", response_model=Envelope[list[DomainDevice]])
+async def list_devices() -> Envelope[list[DomainDevice]]:
+    """Lists devices through DeviceService — works identically once this is
+    backed by real hardware via HomeAssistantAdapter (S1V2-02-016 ff.)."""
+    return ok(await device_service.list_devices())
+
+
+@app.post("/api/v1/devices/{device_id}/commands", response_model=Envelope[CapabilityState])
+async def send_device_command(device_id: str, command: CapabilityCommand) -> Envelope[CapabilityState]:
+    new_state = await device_service.send_command(device_id, command)
+    return ok(new_state)
 
 
 # --- events / pagination --------------------------------------------------
