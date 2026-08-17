@@ -1,0 +1,39 @@
+# SystemONE local Docker Compose baseline (DEC-4: Debian + Docker Compose).
+# Pi/Mini run a slim subset of this; Server/Rack may add isolation without
+# changing the shared stack (see ADR-0002).
+#
+# Status: skeleton from S1V2-01-002. Only wires up what already exists
+# (customer-backend health endpoint + its future PostgreSQL/MQTT
+# dependencies). HQ services are intentionally not in this customer-system
+# compose file — HQ has its own deployment, kept separate per the
+# local-first / no-runtime-HQ-dependency rule (product-manifest.md, §2).
+
+services:
+  customer-backend:
+    build:
+      context: ../../apps/customer-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://systemone:systemone@postgres:5432/systemone
+      - MQTT_BROKER_URL=mqtt://mosquitto:1883
+    depends_on:
+      - postgres
+      - mosquitto
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=systemone
+      - POSTGRES_PASSWORD=systemone
+      - POSTGRES_DB=systemone
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+
+volumes:
+  postgres-data:

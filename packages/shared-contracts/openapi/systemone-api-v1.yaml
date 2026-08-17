@@ -1,0 +1,50 @@
+openapi: 3.1.0
+info:
+  title: SystemONE API
+  version: "1.0.0-draft"
+  description: >
+    Gemeinsamer API-Vertrag für SystemONE-Kundensysteme. Vollständige
+    Ausdefinition folgt in S1V2-01-004 (API-v1, Events und Fehlerformat als
+    stabile Verträge definieren). Dieses Dokument enthält bewusst nur den
+    bereits implementierten Health-Endpunkt als Startpunkt.
+paths:
+  /api/v1/health:
+    get:
+      operationId: getHealth
+      summary: Liveness/Readiness-Probe
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthEnvelope"
+components:
+  schemas:
+    Envelope:
+      type: object
+      required: [success, data, error]
+      properties:
+        success:
+          type: boolean
+        data:
+          nullable: true
+        error:
+          nullable: true
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+    HealthEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [ok]

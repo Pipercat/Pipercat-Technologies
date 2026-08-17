@@ -1,0 +1,88 @@
+name: SystemONE Core (2026-08 Neuaufbau)
+
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'services/**'
+      - 'packages/**'
+      - 'infrastructure/**'
+      - 'scripts/check-import-boundaries.py'
+      - '.github/workflows/systemone-core-neubau.yml'
+  push:
+    paths:
+      - 'apps/**'
+      - 'services/**'
+      - 'packages/**'
+      - 'infrastructure/**'
+      - 'scripts/check-import-boundaries.py'
+      - '.github/workflows/systemone-core-neubau.yml'
+
+jobs:
+  customer-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/customer-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+
+  hq-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/hq-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+
+  home-assistant-adapter:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/home-assistant-adapter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+
+  customer-app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/customer-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+  docker-compose-config:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infrastructure/docker-compose
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config
+
+  import-boundaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/check-import-boundaries.py

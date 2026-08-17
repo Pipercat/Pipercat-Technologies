@@ -39,9 +39,10 @@ Sobald im Rahmen von `S1V2-01-002` ff. neue Verzeichnisse (`apps/`, `services/`,
 
 ## 3. CI-Baseline
 
-- **Bestehend:** `.github/workflows/systemone-pi-mvp.yml` — läuft auf `pull_request`/`push`, beschränkt auf `paths: mvp/systemone-pi/**`. Schritte: `checkout` → `setup-node@v4` (Node 20, npm-Cache über `package-lock.json`) → `npm ci --ignore-scripts` → `npm run verify`. Schlägt bei Syntax-, Secret-, Test- oder Build-Fehlern fehl (exit code ≠ 0 propagiert).
-- **Erweiterungsregel:** Jede neue App/jeder neue Service (Abschnitt 2.2) bekommt einen eigenen, pfadgefilterten CI-Job nach demselben Muster (Checkout → Setup der jeweiligen Laufzeit mit gecachtem, versioniertem Lockfile → `ci`-Kommando, das Lint+Test+Build in einer Kette bündelt, analog zu `npm run verify`). Ein neuer CI-Job wird **im selben PR** eingeführt, der die neue App/den neuen Service anlegt — nicht nachträglich.
-- **Kein grüner Merge ohne grüne CI.** Ein rot laufender Pflicht-Check (Lint, Test, Migration, Build) blockiert den Merge; das ist bereits durch `npm run verify`s Exitcode-Weitergabe sichergestellt und muss für jeden neuen CI-Job identisch gelten.
+- **`.github/workflows/systemone-pi-mvp.yml`** — läuft auf `pull_request`/`push`, beschränkt auf `paths: mvp/systemone-pi/**`. Schritte: `checkout` → `setup-node@v4` (Node 20, npm-Cache über `package-lock.json`) → `npm ci --ignore-scripts` → `npm run verify`. Schlägt bei Syntax-, Secret-, Test- oder Build-Fehlern fehl (exit code ≠ 0 propagiert).
+- **`.github/workflows/systemone-core-neubau.yml`** (seit `S1V2-01-002`) — läuft auf `pull_request`/`push`, beschränkt auf `paths: apps/**`, `services/**`, `packages/**`, `infrastructure/**`, `scripts/check-import-boundaries.py`. Sechs Jobs: `customer-backend`, `hq-backend`, `home-assistant-adapter` (je `pip install -e ".[dev]" && pytest -q`), `customer-app` (Flutter: `subosito/flutter-action@v2` → `flutter pub get/analyze/test` — **Konfiguration folgt Standardmuster, aber in der KI-Sandbox nicht lokal verifizierbar**, siehe `apps/customer-app/README.md`), `docker-compose-config` (`docker compose config`) und `import-boundaries` (`scripts/check-import-boundaries.py`).
+- **Erweiterungsregel:** Jede weitere neue App/jeder neue Service (Abschnitt 2.2) bekommt einen eigenen Job in `systemone-core-neubau.yml` (oder einen neuen Workflow, falls thematisch sinnvoll getrennt) nach demselben Muster. Ein neuer CI-Job wird **im selben PR** eingeführt, der die neue App/den neuen Service anlegt — nicht nachträglich.
+- **Kein grüner Merge ohne grüne CI.** Ein rot laufender Pflicht-Check (Lint, Test, Migration, Build) blockiert den Merge; das gilt für jeden Job in beiden Workflow-Dateien identisch.
 
 ## 4. Betriebshinweis: `git cat-file --batch` in KI-Sandbox-Umgebungen
 
