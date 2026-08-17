@@ -1,0 +1,83 @@
+"""In-memory fakes for the repository/UoW/audit ports (S1V2-02-003
+Definition of Done: "Unit-Tests prüfen Services mit Fake-Repositories").
+No database, no SQLAlchemy import anywhere in this file.
+"""
+
+import uuid
+
+from app.audit import InMemoryAuditRecorder
+from app.repositories.records import DeviceRecord, RoomRecord
+
+
+class FakeRoomRepository:
+    def __init__(self) -> None:
+        self._rooms: dict[str, RoomRecord] = {}
+
+    def add(self, *, household_id: str, name: str) -> RoomRecord:
+        room = RoomRecord(id=str(uuid.uuid4()), household_id=household_id, name=name)
+        self._rooms[room.id] = room
+        return room
+
+    def list_by_household(self, household_id: str) -> list[RoomRecord]:
+        return [r for r in self._rooms.values() if r.household_id == household_id]
+
+
+class FakeDeviceRepository:
+    def __init__(self) -> None:
+        self._devices: dict[str, DeviceRecord] = {}
+
+    def add(
+        self, *, household_id: str, integration_id: str, external_id: str, name: str, device_type: str
+    ) -> DeviceRecord:
+        device = DeviceRecord(
+            id=str(uuid.uuid4()),
+            household_id=household_id,
+            integration_id=integration_id,
+            external_id=external_id,
+            name=name,
+            device_type=device_type,
+        )
+        self._devices[device.id] = device
+        return device
+
+    def get_by_external_id(self, integration_id: str, external_id: str) -> DeviceRecord | None:
+        for device in self._devices.values():
+            if device.integration_id == integration_id and device.external_id == external_id:
+                return device
+        return None
+
+    def list_by_household(self, household_id: str) -> list[DeviceRecord]:
+        return [d for d in self._devices.values() if d.household_id == household_id]
+
+
+class FakeUnitOfWork:
+    """committed/rolled_back flags let tests assert transaction discipline
+    without a real database."""
+
+    def __init__(self) -> None:
+        self.rooms = FakeRoomRepository()
+        self.devices = FakeDeviceRepository()
+        self.committed = False
+        self.rolled_back = False
+
+    def __enter__(self) -> "FakeUnitOfWork":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        if exc_type is not None:
+            self.rollback()
+
+    def commit(self) -> None:
+        self.committed = True
+
+    def rollback(self) -> None:
+        self.rolled_back = True
+
+
+def make_actor(*permissions: str) -> "Actor":
+    from app.authorization import Actor
+
+    return Actor(user_id=str(uuid.uuid4()), permissions=frozenset(permissions))
+
+
+__all__ = ["FakeRoomRepository", "FakeDeviceRepository", "FakeUnitOfWork", "InMemoryAuditRecorder", "make_actor"]
