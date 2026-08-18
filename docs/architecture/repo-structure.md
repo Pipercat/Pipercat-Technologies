@@ -49,7 +49,7 @@ Für Flutter/Dart und für noch nicht implementierte Bereiche (`hq-frontend`, `w
 - Gemeinsame Modelle nur bei **identischer Semantik** in `packages/shared-contracts` — HQ-interne Modelle (`Customer`, `Project`, `SupportCase` usw. aus `S1V2-03-003`) gehören nicht dorthin, auch wenn sie strukturell ähnlich aussehen.
 - HQ-Secrets/Kundendaten/Adminlogik wandern nicht in Kundensystem-Pakete (bereits in jeder App-`README.md` als Grenze festgehalten).
 - Keine zyklischen Abhängigkeiten — `packages/shared-contracts` und `services/home-assistant-adapter` sind bewusst als Leaf-Dependencies ohne interne Abhängigkeiten angelegt.
-- Jedes Modul hat eine klare öffentliche Schnittstelle: FastAPI-Apps über ihre `/api/v1/*`-Routen, `home-assistant-adapter` über die abstrakte `HomeAssistantAdapter`-Klasse, `shared-contracts` über sein OpenAPI-Dokument.
+- Jedes Modul hat eine klare öffentliche Schnittstelle: FastAPI-Apps über ihre `/api/v1/*`-Routen, `home-assistant-adapter` über die `HomeAssistantAdapter`-Klasse (erfüllt `app.domain.adapter_port.DeviceAdapterPort` strukturell, siehe `docs/architecture/home-assistant-adapter.md`), `shared-contracts` über sein OpenAPI-Dokument.
 
 ## Build-/Testnachweis
 
@@ -57,7 +57,7 @@ Für Flutter/Dart und für noch nicht implementierte Bereiche (`hq-frontend`, `w
 |---|---|---|
 | `apps/customer-backend` | `pytest` (mit `DATABASE_URL` gesetzt — Schema `postgresql+psycopg://...`, siehe `docs/architecture/protected-actions.md` Betriebshinweis; Python 3.12 empfohlen, siehe `docs/architecture/data-model.md` für einen Python-3.14-Sandbox-Hinweis; MQTT-Tests brauchen zusätzlich ein lokales `mosquitto`). Sicherheitsrelevante Teilmenge: `pytest -m security -q` (106 Tests, siehe `docs/architecture/security-testharness.md`) | 193 passed (183 aus `S1V2-01-003`–`S1V2-02-014` + 8 neue Datenisolations-Tests + 2 neue Secret-Store-Cross-Household-Tests aus `S1V2-02-015`) |
 | `apps/hq-backend` | `pytest` | 1 passed |
-| `services/home-assistant-adapter` | `pytest` | 2 passed |
+| `services/home-assistant-adapter` | `pytest` (mit `HOME_ASSISTANT_URL` für den echten Integrationstest — siehe `docs/architecture/home-assistant-adapter.md`) | 25 passed |
 | `infrastructure/docker-compose` | `docker compose config` | erfolgreich validiert |
 | `apps/customer-app` | `flutter pub get && flutter test` | **nicht verifiziert** — kein Flutter-SDK in dieser Sandbox, siehe `apps/customer-app/README.md` |
 | gesamt | `python3 scripts/check-import-boundaries.py` | keine Verletzung gefunden |

@@ -13,6 +13,11 @@ Rules (see docs/architecture/repo-structure.md):
     leaf dependency, consumed by apps, never the other way around).
   - packages/shared-contracts is Python-schema-free today (OpenAPI only),
     kept out of scope until it gains Python code.
+  - apps/customer-backend/app/domain (S1V2-02-016) must never import
+    HA-specific libraries (httpx, websockets) or the home_assistant_adapter
+    package directly - HomeAssistantAdapter is wired in at the app's edge
+    (main.py) and satisfies DeviceAdapterPort structurally; the domain
+    layer itself stays adapter-agnostic.
 """
 
 from __future__ import annotations
@@ -30,6 +35,10 @@ RULES: list[tuple[Path, list[str]]] = [
     (
         REPO_ROOT / "services" / "home-assistant-adapter",
         ["apps", "customer_backend", "hq_backend"],
+    ),
+    (
+        REPO_ROOT / "apps" / "customer-backend" / "app" / "domain",
+        ["httpx", "websockets", "home_assistant_adapter"],
     ),
 ]
 

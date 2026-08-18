@@ -114,7 +114,27 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -e ".[dev]"
-      - run: pytest -q
+      # S1V2-02-016 DoD: "Mock- und echter HA-Integrationstest" - started
+      # directly (not a `services:` container) because it needs a
+      # bind-mounted configuration.yaml with the `demo:` platform enabled,
+      # which a plain services: entry can't provide.
+      - name: Start a real Home Assistant instance with demo entities
+        run: |
+          mkdir -p /tmp/ha-config
+          cat > /tmp/ha-config/configuration.yaml <<'EOF'
+          default_config:
+          demo:
+          EOF
+          docker run -d --name ha-test -v /tmp/ha-config:/config -p 8123:8123 homeassistant/home-assistant:stable
+      - name: Wait for Home Assistant to become reachable
+        run: |
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8123/ || true)
+            if [ "$code" = "200" ] || [ "$code" = "302" ]; then echo "HA reachable"; exit 0; fi
+            sleep 5
+          done
+          echo "Home Assistant did not become reachable in time"; docker logs ha-test; exit 1
+      - run: HOME_ASSISTANT_URL=http://localhost:8123 pytest -q
 
   customer-app:
     runs-on: ubuntu-latest
