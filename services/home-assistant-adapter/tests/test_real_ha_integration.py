@@ -73,6 +73,20 @@ async def test_list_areas_round_trips_through_the_real_websocket_api(adapter):
     assert isinstance(areas, list)  # a fresh demo instance may have zero areas - the call succeeding is the proof
 
 
+async def test_list_entity_and_device_registry_round_trip_through_the_real_websocket_api(adapter):
+    """S1V2-02-017 groundwork: the demo platform's entities are always
+    registered, so the registry rows must be non-empty and shaped as
+    expected against a real server."""
+    entities = await adapter.list_entity_registry()
+    devices = await adapter.list_device_registry()
+
+    assert len(entities) > 0
+    for entity in entities:
+        assert set(entity.keys()) == {"entityId", "areaId", "deviceId"}
+    for device in devices:
+        assert set(device.keys()) == {"id", "areaId"}
+
+
 async def test_subscribe_events_receives_a_real_state_change(adapter):
     """Toggling a demo light through the REST API and observing the
     resulting state_changed event arrive over the adapter's own

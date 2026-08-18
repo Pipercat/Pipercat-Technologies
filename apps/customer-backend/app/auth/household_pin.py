@@ -190,14 +190,18 @@ class HouseholdPinService:
         self._lockout.record_success(user_id)
         self._audit.record(actor=None, action="pin.verified", target_type="user", target_id=user_id, outcome="success")
 
-    async def reset_lockout(self, admin_actor: Actor, admin_raw_token: str, *, target_user_id: str) -> None:
+    async def reset_lockout(
+        self, admin_actor: Actor, admin_raw_token: str, *, target_user_id: str, now: datetime | None = None
+    ) -> None:
         """"Reset des Sperrstatus nur nach erneuter Adminauthentifizierung":
         the admin's *own* admin-area must currently be unlocked (a fresh
         S1V2-02-010 step-up), not merely holding the users:manage
         permission - a stale/ambient session is not enough to clear
-        someone else's lockout."""
+        someone else's lockout. `now` is forwarded to the admin-area
+        check so tests can use a fixed clock consistently with whatever
+        `now` unlocked the admin area in the first place."""
         require_permission(admin_actor, "users:manage")
-        self._admin_area.require_unlocked(admin_raw_token)
+        self._admin_area.require_unlocked(admin_raw_token, now=now)
         with self._uow_factory() as uow:
             self._require_target_in_same_household(admin_actor, uow, target_user_id)
 

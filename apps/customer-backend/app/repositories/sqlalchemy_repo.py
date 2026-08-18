@@ -15,11 +15,31 @@ class SqlAlchemyRoomRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def add(self, *, household_id: str, name: str) -> RoomRecord:
-        room = Room(household_id=uuid.UUID(household_id), name=name)
+    def add(
+        self, *, household_id: str, name: str, integration_id: str | None = None, external_id: str | None = None
+    ) -> RoomRecord:
+        room = Room(
+            household_id=uuid.UUID(household_id),
+            name=name,
+            integration_id=uuid.UUID(integration_id) if integration_id else None,
+            external_id=external_id,
+        )
         self._session.add(room)
         self._session.flush()  # assigns room.id without committing the transaction
         return _to_room_record(room)
+
+    def get_by_external_id(self, integration_id: str, external_id: str) -> RoomRecord | None:
+        stmt = select(Room).where(
+            Room.integration_id == uuid.UUID(integration_id), Room.external_id == external_id, Room.deleted_at.is_(None)
+        )
+        room = self._session.scalars(stmt).first()
+        return _to_room_record(room) if room else None
+
+    def update_name(self, room_id: str, name: str) -> None:
+        room = self._session.get(Room, uuid.UUID(room_id))
+        if room is not None:
+            room.name = name
+            self._session.flush()
 
     def list_by_household(self, household_id: str) -> list[RoomRecord]:
         stmt = select(Room).where(Room.household_id == uuid.UUID(household_id), Room.deleted_at.is_(None))
@@ -31,7 +51,14 @@ class SqlAlchemyDeviceRepository:
         self._session = session
 
     def add(
-        self, *, household_id: str, integration_id: str, external_id: str, name: str, device_type: str
+        self,
+        *,
+        household_id: str,
+        integration_id: str,
+        external_id: str,
+        name: str,
+        device_type: str,
+        room_id: str | None = None,
     ) -> DeviceRecord:
         device = Device(
             household_id=uuid.UUID(household_id),
@@ -39,6 +66,7 @@ class SqlAlchemyDeviceRepository:
             external_id=external_id,
             name=name,
             device_type=device_type,
+            room_id=uuid.UUID(room_id) if room_id else None,
         )
         self._session.add(device)
         self._session.flush()
@@ -52,6 +80,13 @@ class SqlAlchemyDeviceRepository:
         )
         device = self._session.scalars(stmt).first()
         return _to_device_record(device) if device else None
+
+    def update(self, device_id: str, *, name: str, room_id: str | None) -> None:
+        device = self._session.get(Device, uuid.UUID(device_id))
+        if device is not None:
+            device.name = name
+            device.room_id = uuid.UUID(room_id) if room_id else None
+            self._session.flush()
 
     def list_by_household(self, household_id: str) -> list[DeviceRecord]:
         stmt = select(Device).where(Device.household_id == uuid.UUID(household_id), Device.deleted_at.is_(None))
@@ -111,7 +146,13 @@ def _to_user_record(user: User) -> UserRecord:
 
 
 def _to_room_record(room: Room) -> RoomRecord:
-    return RoomRecord(id=str(room.id), household_id=str(room.household_id), name=room.name)
+    return RoomRecord(
+        id=str(room.id),
+        household_id=str(room.household_id),
+        name=room.name,
+        integration_id=str(room.integration_id) if room.integration_id else None,
+        external_id=room.external_id,
+    )
 
 
 def _to_device_record(device: Device) -> DeviceRecord:
@@ -122,4 +163,5 @@ def _to_device_record(device: Device) -> DeviceRecord:
         external_id=device.external_id,
         name=device.name,
         device_type=device.device_type,
+        room_id=str(device.room_id) if device.room_id else None,
     )

@@ -205,7 +205,7 @@ async def test_reset_lockout_succeeds_once_admin_freshly_unlocked(rig):
     )
     await admin_area.unlock_admin_area(admin_token, password="admin-password", now=t)
 
-    await service.reset_lockout(admin, admin_token, target_user_id="user-1")
+    await service.reset_lockout(admin, admin_token, target_user_id="user-1", now=t)
 
     assert service.is_locked("user-1", now=t) is None
     await service.verify_pin("user-1", "4321", now=t)  # PIN itself is unaffected by the lockout reset

@@ -13,10 +13,35 @@ class FakeRoomRepository:
     def __init__(self) -> None:
         self._rooms: dict[str, RoomRecord] = {}
 
-    def add(self, *, household_id: str, name: str) -> RoomRecord:
-        room = RoomRecord(id=str(uuid.uuid4()), household_id=household_id, name=name)
+    def add(
+        self, *, household_id: str, name: str, integration_id: str | None = None, external_id: str | None = None
+    ) -> RoomRecord:
+        room = RoomRecord(
+            id=str(uuid.uuid4()),
+            household_id=household_id,
+            name=name,
+            integration_id=integration_id,
+            external_id=external_id,
+        )
         self._rooms[room.id] = room
         return room
+
+    def get_by_external_id(self, integration_id: str, external_id: str) -> RoomRecord | None:
+        for room in self._rooms.values():
+            if room.integration_id == integration_id and room.external_id == external_id:
+                return room
+        return None
+
+    def update_name(self, room_id: str, name: str) -> None:
+        existing = self._rooms.get(room_id)
+        if existing is not None:
+            self._rooms[room_id] = RoomRecord(
+                id=existing.id,
+                household_id=existing.household_id,
+                name=name,
+                integration_id=existing.integration_id,
+                external_id=existing.external_id,
+            )
 
     def list_by_household(self, household_id: str) -> list[RoomRecord]:
         return [r for r in self._rooms.values() if r.household_id == household_id]
@@ -27,7 +52,14 @@ class FakeDeviceRepository:
         self._devices: dict[str, DeviceRecord] = {}
 
     def add(
-        self, *, household_id: str, integration_id: str, external_id: str, name: str, device_type: str
+        self,
+        *,
+        household_id: str,
+        integration_id: str,
+        external_id: str,
+        name: str,
+        device_type: str,
+        room_id: str | None = None,
     ) -> DeviceRecord:
         device = DeviceRecord(
             id=str(uuid.uuid4()),
@@ -36,6 +68,7 @@ class FakeDeviceRepository:
             external_id=external_id,
             name=name,
             device_type=device_type,
+            room_id=room_id,
         )
         self._devices[device.id] = device
         return device
@@ -45,6 +78,19 @@ class FakeDeviceRepository:
             if device.integration_id == integration_id and device.external_id == external_id:
                 return device
         return None
+
+    def update(self, device_id: str, *, name: str, room_id: str | None) -> None:
+        existing = self._devices.get(device_id)
+        if existing is not None:
+            self._devices[device_id] = DeviceRecord(
+                id=existing.id,
+                household_id=existing.household_id,
+                integration_id=existing.integration_id,
+                external_id=existing.external_id,
+                name=name,
+                device_type=existing.device_type,
+                room_id=room_id,
+            )
 
     def list_by_household(self, household_id: str) -> list[DeviceRecord]:
         return [d for d in self._devices.values() if d.household_id == household_id]

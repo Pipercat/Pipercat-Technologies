@@ -14,6 +14,8 @@ class RoomRecord:
     id: str
     household_id: str
     name: str
+    integration_id: str | None = None
+    external_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -24,6 +26,7 @@ class DeviceRecord:
     external_id: str
     name: str
     device_type: str
+    room_id: str | None = None
 
 
 @dataclass(frozen=True)

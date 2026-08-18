@@ -41,6 +41,10 @@ class FakeHomeAssistantClient:
     async def send_command(self, command_type: str, **extra) -> Any:
         if command_type == "config/area_registry/list":
             return [{"area_id": "living_room", "name": "Living Room"}]
+        if command_type == "config/entity_registry/list":
+            return [{"entity_id": "light.bed_light", "area_id": None, "device_id": "device-1"}]
+        if command_type == "config/device_registry/list":
+            return [{"id": "device-1", "area_id": "living_room"}]
         raise AssertionError(f"unexpected command {command_type}")
 
     def queue_event(self, event: dict) -> None:
@@ -115,6 +119,22 @@ async def test_list_areas_maps_ha_area_registry():
     areas = await adapter.list_areas()
 
     assert areas == [{"id": "living_room", "name": "Living Room"}]
+
+
+async def test_list_entity_registry_maps_ha_rows():
+    adapter, _fake = _adapter_with_fake_client([])
+
+    entities = await adapter.list_entity_registry()
+
+    assert entities == [{"entityId": "light.bed_light", "areaId": None, "deviceId": "device-1"}]
+
+
+async def test_list_device_registry_maps_ha_rows():
+    adapter, _fake = _adapter_with_fake_client([])
+
+    devices = await adapter.list_device_registry()
+
+    assert devices == [{"id": "device-1", "areaId": "living_room"}]
 
 
 async def test_subscribe_events_yields_normalized_device_updates():

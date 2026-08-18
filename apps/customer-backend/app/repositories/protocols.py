@@ -9,17 +9,41 @@ from .records import DeviceRecord, RoomRecord, UserRecord
 
 
 class RoomRepository(Protocol):
-    def add(self, *, household_id: str, name: str) -> RoomRecord: ...
+    def add(
+        self, *, household_id: str, name: str, integration_id: str | None = None, external_id: str | None = None
+    ) -> RoomRecord: ...
+
+    def get_by_external_id(self, integration_id: str, external_id: str) -> RoomRecord | None: ...
+
+    def update_name(self, room_id: str, name: str) -> None:
+        """Renaming an imported room (S1V2-02-017: HA area renamed) never
+        creates a new Room - the same external_id keeps mapping to the
+        same room_id, only its name changes."""
+        ...
 
     def list_by_household(self, household_id: str) -> list[RoomRecord]: ...
 
 
 class DeviceRepository(Protocol):
     def add(
-        self, *, household_id: str, integration_id: str, external_id: str, name: str, device_type: str
+        self,
+        *,
+        household_id: str,
+        integration_id: str,
+        external_id: str,
+        name: str,
+        device_type: str,
+        room_id: str | None = None,
     ) -> DeviceRecord: ...
 
     def get_by_external_id(self, integration_id: str, external_id: str) -> DeviceRecord | None: ...
+
+    def update(self, device_id: str, *, name: str, room_id: str | None) -> None:
+        """Renaming or moving an already-registered device (S1V2-02-017)
+        updates the existing row in place - never creates a new device
+        object, matching the DoD "Umbenennung/Room-Wechsel... verursachen
+        keine neuen Geräteobjekte"."""
+        ...
 
     def list_by_household(self, household_id: str) -> list[DeviceRecord]: ...
 

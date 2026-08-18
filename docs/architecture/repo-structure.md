@@ -55,9 +55,9 @@ Für Flutter/Dart und für noch nicht implementierte Bereiche (`hq-frontend`, `w
 
 | Paket | Kommando | Ergebnis (18.08.2026) |
 |---|---|---|
-| `apps/customer-backend` | `pytest` (mit `DATABASE_URL` gesetzt — Schema `postgresql+psycopg://...`, siehe `docs/architecture/protected-actions.md` Betriebshinweis; Python 3.12 empfohlen, siehe `docs/architecture/data-model.md` für einen Python-3.14-Sandbox-Hinweis; MQTT-Tests brauchen zusätzlich ein lokales `mosquitto`). Sicherheitsrelevante Teilmenge: `pytest -m security -q` (106 Tests, siehe `docs/architecture/security-testharness.md`) | 193 passed (183 aus `S1V2-01-003`–`S1V2-02-014` + 8 neue Datenisolations-Tests + 2 neue Secret-Store-Cross-Household-Tests aus `S1V2-02-015`) |
+| `apps/customer-backend` | `pytest` (mit `DATABASE_URL` gesetzt — Schema `postgresql+psycopg://...`, siehe `docs/architecture/protected-actions.md` Betriebshinweis; Python 3.12 empfohlen, siehe `docs/architecture/data-model.md` für einen Python-3.14-Sandbox-Hinweis; MQTT-Tests brauchen zusätzlich ein lokales `mosquitto`). Sicherheitsrelevante Teilmenge: `pytest -m security -q` (siehe `docs/architecture/security-testharness.md`) | 207 passed (193 aus `S1V2-01-003`–`S1V2-02-015` + 14 neue Tests für den HA-Import aus `S1V2-02-017`, siehe `docs/architecture/ha-import.md`) |
 | `apps/hq-backend` | `pytest` | 1 passed |
-| `services/home-assistant-adapter` | `pytest` (mit `HOME_ASSISTANT_URL` für den echten Integrationstest — siehe `docs/architecture/home-assistant-adapter.md`) | 25 passed |
+| `services/home-assistant-adapter` | `pytest` (mit `HOME_ASSISTANT_URL` für den echten Integrationstest — siehe `docs/architecture/home-assistant-adapter.md`) | 26 passed |
 | `infrastructure/docker-compose` | `docker compose config` | erfolgreich validiert |
 | `apps/customer-app` | `flutter pub get && flutter test` | **nicht verifiziert** — kein Flutter-SDK in dieser Sandbox, siehe `apps/customer-app/README.md` |
 | gesamt | `python3 scripts/check-import-boundaries.py` | keine Verletzung gefunden |

@@ -67,6 +67,25 @@ class HomeAssistantAdapter:
         result = await self._client.send_command("config/area_registry/list")
         return [{"id": area["area_id"], "name": area["name"]} for area in result]
 
+    async def list_entity_registry(self) -> list[dict[str, Any]]:
+        """Raw HA entity-registry rows (S1V2-02-017: "Räume ... stabil
+        zuordnen") - each entity's own `area_id` if explicitly set, else
+        `None`, plus the `device_id` of its parent HA device (which may
+        itself carry the area assignment - see list_device_registry())."""
+        result = await self._client.send_command("config/entity_registry/list")
+        return [
+            {"entityId": row["entity_id"], "areaId": row.get("area_id"), "deviceId": row.get("device_id")}
+            for row in result
+        ]
+
+    async def list_device_registry(self) -> list[dict[str, Any]]:
+        """Raw HA device-registry rows - an entity with no area of its own
+        inherits its parent device's area (standard Home Assistant
+        behaviour: most integrations set the area on the device, not each
+        individual entity)."""
+        result = await self._client.send_command("config/device_registry/list")
+        return [{"id": row["id"], "areaId": row.get("area_id")} for row in result]
+
     async def subscribe_events(self) -> AsyncIterator[dict[str, Any]]:
         """Yields normalized {"deviceId", "entityId", "state"} dicts for
         every live Home Assistant state_changed event, reconnecting

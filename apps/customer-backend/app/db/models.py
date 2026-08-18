@@ -13,7 +13,7 @@ S1V2-02-008's job, this schema just refuses to have a plaintext column.
 
 import uuid
 
-from sqlalchemy import JSON, Boolean, CheckConstraint, DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, Boolean, CheckConstraint, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -52,6 +52,24 @@ class Room(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
 
     household_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("households.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(200))
+    # S1V2-02-017: set only for rooms imported from an integration's area
+    # registry (e.g. Home Assistant) - None for rooms a customer created
+    # by hand. Lets re-import find the same Room again instead of
+    # creating a duplicate on every sync.
+    integration_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("integrations.id", ondelete="SET NULL"), default=None
+    )
+    external_id: Mapped[str | None] = mapped_column(String(300), default=None)
+
+    __table_args__ = (
+        Index(
+            "uq_rooms_integration_external_id",
+            "integration_id",
+            "external_id",
+            unique=True,
+            postgresql_where=external_id.isnot(None),  # type: ignore[union-attr]
+        ),
+    )
 
 
 class Role(UUIDPrimaryKeyMixin, TimestampMixin, Base):
