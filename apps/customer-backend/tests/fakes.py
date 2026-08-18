@@ -79,6 +79,18 @@ class FakeUserRepository:
                 pin_hash=existing.pin_hash,
             )
 
+    def set_pin_hash(self, user_id: str, pin_hash: str | None) -> None:
+        existing = self._users.get(user_id)
+        if existing is not None:
+            self._users[user_id] = UserRecord(
+                id=existing.id,
+                household_id=existing.household_id,
+                role_id=existing.role_id,
+                display_name=existing.display_name,
+                password_hash=existing.password_hash,
+                pin_hash=pin_hash,
+            )
+
 
 class FakeRoleRepository:
     def __init__(self) -> None:

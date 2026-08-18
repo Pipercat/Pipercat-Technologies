@@ -6,6 +6,13 @@ from .admin_area import (
     StepUpAuthenticationError,
 )
 from .csrf import CsrfValidationError, validate_csrf
+from .household_pin import (
+    HouseholdPinService,
+    InvalidPinError,
+    InvalidPinFormatError,
+    PinLockedError,
+    PinNotEnabledError,
+)
 from .password_hashing import hash_password, needs_rehash, verify_password
 from .rate_limiter import RateLimiter
 from .service import (
@@ -38,4 +45,9 @@ __all__ = [
     "StepUpAuthenticationError",
     "BiometricVerifier",
     "FakeBiometricVerifier",
+    "HouseholdPinService",
+    "InvalidPinError",
+    "InvalidPinFormatError",
+    "PinLockedError",
+    "PinNotEnabledError",
 ]

@@ -83,6 +83,12 @@ class SqlAlchemyUserRepository:
             user.role_id = uuid.UUID(role_id)
             self._session.flush()
 
+    def set_pin_hash(self, user_id: str, pin_hash: str | None) -> None:
+        user = self._session.get(User, uuid.UUID(user_id))
+        if user is not None:
+            user.pin_hash = pin_hash
+            self._session.flush()
+
 
 class SqlAlchemyRoleRepository:
     def __init__(self, session: Session) -> None:
