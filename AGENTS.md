@@ -108,6 +108,7 @@ Nach jeder Arbeitseinheit gilt die Testfrage: „Wenn ich jetzt sofort verschwin
 - [`docs/architecture/security-testharness.md`](docs/architecture/security-testharness.md) — `security`-Pytest-Marker, eigener CI-Schritt, Actor.household_id/require_same_household() als Datenisolations-Fix (Notion-Aufgabe `S1V2-02-015`)
 - [`docs/architecture/home-assistant-adapter.md`](docs/architecture/home-assistant-adapter.md) — Echter HomeAssistantAdapter (REST+WebSocket, Auth/Reconnect/Timeout), erfüllt DeviceAdapterPort strukturell, Mock- und echter HA-Integrationstest (Notion-Aufgabe `S1V2-02-016`)
 - [`docs/architecture/ha-import.md`](docs/architecture/ha-import.md) — Stabiler, idempotenter Import von HA-Areas/-Entities zu Room/Device, Area-Zuordnung über Entity-/Device-Registry (Notion-Aufgabe `S1V2-02-017`)
+- [`docs/architecture/capability-mapping.md`](docs/architecture/capability-mapping.md) — Neue Capability-Typen Lock/Climate/Camera-Stream, `compatibility`-Markierung statt Raten, Vokabular-Isolation (Notion-Aufgabe `S1V2-02-018`)
 - [`docs/architecture/adr-0002-home-assistant-backbone.md`](docs/architecture/adr-0002-home-assistant-backbone.md) — **verbindliche Zielarchitektur** (Notion-Aufgabe `S1V2-01-001`)
 - [`docs/architecture/adr-0001-systemone-pi-pilot.md`](docs/architecture/adr-0001-systemone-pi-pilot.md) — historische Pilotarchitektur, teilweise ersetzt durch ADR-0002
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — Kurzüberblick, verweist auf ADR-0002

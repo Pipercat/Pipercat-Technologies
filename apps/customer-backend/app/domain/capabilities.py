@@ -1,4 +1,5 @@
-"""Stable, SystemONE-owned capability types (S1V2-02-002).
+"""Stable, SystemONE-owned capability types (S1V2-02-002, extended in
+S1V2-02-018 for locks/climate/camera).
 
 SystemONE never depends on Home Assistant's entity/domain/service
 vocabulary directly. This module is that boundary: every device the
@@ -18,6 +19,9 @@ class CapabilityType(str, Enum):
     BRIGHTNESS = "brightness"
     POSITION = "position"  # covers/blinds, 0 = closed, 100 = open
     TEMPERATURE = "temperature"  # read-only sensor reading
+    LOCK = "lock"
+    CLIMATE = "climate"
+    CAMERA_STREAM = "camera_stream"  # read-only: whether a live feed exists, never the feed itself
 
 
 class OnOffState(BaseModel):
@@ -40,8 +44,36 @@ class TemperatureState(BaseModel):
     celsius: float
 
 
+class LockState(BaseModel):
+    type: Literal[CapabilityType.LOCK] = CapabilityType.LOCK
+    is_locked: bool
+
+
+class ClimateMode(str, Enum):
+    """Deliberately only the handful of HVAC modes SystemONE actually
+    normalizes to - an HA mode outside this set (e.g. "dry", "fan_only",
+    "heat_cool") is not guessed into the closest match, it makes the
+    whole entity unsupported instead (see mapping.py)."""
+
+    OFF = "off"
+    HEAT = "heat"
+    COOL = "cool"
+    AUTO = "auto"
+
+
+class ClimateState(BaseModel):
+    type: Literal[CapabilityType.CLIMATE] = CapabilityType.CLIMATE
+    target_celsius: float
+    mode: ClimateMode
+
+
+class CameraStreamState(BaseModel):
+    type: Literal[CapabilityType.CAMERA_STREAM] = CapabilityType.CAMERA_STREAM
+    is_available: bool
+
+
 CapabilityState = Annotated[
-    Union[OnOffState, BrightnessState, PositionState, TemperatureState],
+    Union[OnOffState, BrightnessState, PositionState, TemperatureState, LockState, ClimateState, CameraStreamState],
     Field(discriminator="type"),
 ]
 
@@ -61,12 +93,33 @@ class SetPositionCommand(BaseModel):
     percent_open: int = Field(ge=0, le=100)
 
 
-# TemperatureState is read-only (a sensor reading) - deliberately no
-# SetTemperatureCommand exists. Attempting to command it is a domain-level
-# error, not just an adapter-level one (see DeviceService.send_command).
+class SetLockCommand(BaseModel):
+    type: Literal[CapabilityType.LOCK] = CapabilityType.LOCK
+    is_locked: bool
+
+
+class SetClimateCommand(BaseModel):
+    type: Literal[CapabilityType.CLIMATE] = CapabilityType.CLIMATE
+    target_celsius: float
+    mode: ClimateMode
+
+
+# TemperatureState and CameraStreamState are read-only (a sensor reading
+# and "does a live feed exist", respectively) - deliberately no Set*Command
+# exists for either. Attempting to command one is a domain-level error,
+# not just an adapter-level one (see DeviceService.send_command). Camera
+# viewing/recording itself is a separate, security-sensitive future task
+# (a protected action, per S1V2-02-012's pattern) - this capability only
+# ever reports availability, never a stream URL or credential.
 CapabilityCommand = Annotated[
-    Union[SetOnOffCommand, SetBrightnessCommand, SetPositionCommand],
+    Union[SetOnOffCommand, SetBrightnessCommand, SetPositionCommand, SetLockCommand, SetClimateCommand],
     Field(discriminator="type"),
 ]
 
-COMMANDABLE_TYPES = {CapabilityType.ON_OFF, CapabilityType.BRIGHTNESS, CapabilityType.POSITION}
+COMMANDABLE_TYPES = {
+    CapabilityType.ON_OFF,
+    CapabilityType.BRIGHTNESS,
+    CapabilityType.POSITION,
+    CapabilityType.LOCK,
+    CapabilityType.CLIMATE,
+}
