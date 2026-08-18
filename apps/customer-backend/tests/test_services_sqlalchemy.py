@@ -32,7 +32,7 @@ def test_room_service_persists_through_real_postgres(migrated_db):
     migrated_db.commit()
 
     service = RoomService(uow_factory=_uow_factory, audit=InMemoryAuditRecorder())
-    actor = make_actor("rooms:manage", "rooms:read")
+    actor = make_actor("rooms:manage", "rooms:read", household_id=str(household.id))
 
     created = service.create_room(actor, household_id=str(household.id), name="Flur")
     rooms = service.list_rooms(actor, household_id=str(household.id))
@@ -51,7 +51,7 @@ def test_device_registration_idempotent_through_real_postgres(migrated_db):
     migrated_db.commit()
 
     service = DeviceRegistrationService(uow_factory=_uow_factory, audit=InMemoryAuditRecorder())
-    actor = make_actor("devices:manage")
+    actor = make_actor("devices:manage", household_id=str(household.id))
 
     first = service.register_device(
         actor,

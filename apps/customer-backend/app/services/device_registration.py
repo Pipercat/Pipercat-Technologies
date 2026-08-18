@@ -11,7 +11,7 @@ just this one use case.
 from collections.abc import Callable
 
 from app.audit import AuditRecorder
-from app.authorization import Actor, require_permission
+from app.authorization import Actor, require_permission, require_same_household
 from app.repositories.records import DeviceRecord
 from app.uow import UnitOfWork
 
@@ -32,6 +32,7 @@ class DeviceRegistrationService:
         device_type: str,
     ) -> DeviceRecord:
         require_permission(actor, "devices:manage")
+        require_same_household(actor, household_id)
 
         with self._uow_factory() as uow:
             existing = uow.devices.get_by_external_id(integration_id, external_id)

@@ -21,6 +21,7 @@ def _household(session, product_class="pi"):
     return household
 
 
+@pytest.mark.security
 def test_no_plaintext_password_or_pin_columns_exist():
     column_names = {c.name for c in User.__table__.columns}
     assert "password" not in column_names

@@ -16,7 +16,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 from app.audit import AuditRecorder
-from app.authorization import Actor, require_permission
+from app.authorization import Actor, CrossHouseholdAccessError, require_permission
 from app.uow import UnitOfWork
 
 from .admin_area import AdminAreaService
@@ -116,6 +116,22 @@ class HouseholdPinService:
         self._admin_area = admin_area
         self._lockout = _PinLockoutTracker(lockout_threshold, lockout_stages or LOCKOUT_STAGES)
 
+    def _require_target_in_same_household(self, admin_actor: Actor, uow: UnitOfWork, target_user_id: str) -> None:
+        """"Kundenadmin entscheidet pro Benutzer" - but only for users in
+        the admin's own household. users:manage grants the kind of
+        action, not authority over an arbitrary target_user_id."""
+        target_user = uow.users.get_by_id(target_user_id)
+        if target_user is not None and target_user.household_id != admin_actor.household_id:
+            self._audit.record(
+                actor=admin_actor,
+                action="pin.blocked",
+                target_type="user",
+                target_id=target_user_id,
+                outcome="failure",
+                metadata={"reason": "cross_household"},
+            )
+            raise CrossHouseholdAccessError()
+
     async def enable_pin(self, admin_actor: Actor, *, target_user_id: str, pin: str) -> None:
         """"Kundenadmin entscheidet pro Benutzer" - only an admin acting on
         someone else's account configures a PIN, never a bare user-side
@@ -125,6 +141,7 @@ class HouseholdPinService:
             raise InvalidPinFormatError()
 
         with self._uow_factory() as uow:
+            self._require_target_in_same_household(admin_actor, uow, target_user_id)
             uow.users.set_pin_hash(target_user_id, hash_password(pin))
             uow.commit()
         self._lockout.reset(target_user_id)
@@ -135,6 +152,7 @@ class HouseholdPinService:
     async def disable_pin(self, admin_actor: Actor, *, target_user_id: str) -> None:
         require_permission(admin_actor, "users:manage")
         with self._uow_factory() as uow:
+            self._require_target_in_same_household(admin_actor, uow, target_user_id)
             uow.users.set_pin_hash(target_user_id, None)
             uow.commit()
         self._lockout.reset(target_user_id)
@@ -180,6 +198,8 @@ class HouseholdPinService:
         someone else's lockout."""
         require_permission(admin_actor, "users:manage")
         self._admin_area.require_unlocked(admin_raw_token)
+        with self._uow_factory() as uow:
+            self._require_target_in_same_household(admin_actor, uow, target_user_id)
 
         self._lockout.reset(target_user_id)
         self._audit.record(

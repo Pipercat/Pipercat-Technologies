@@ -30,3 +30,6 @@ include = ["app*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "security: security-relevant tests (S1V2-02-015) - authentication, authorization, privilege escalation, household PIN, rate limits, CSRF, tampered IDs, data isolation, audit tampering, secret leaks. Run in isolation with `pytest -m security`.",
+]

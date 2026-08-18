@@ -129,10 +129,13 @@ class FakeUnitOfWork:
         self.rolled_back = True
 
 
-def make_actor(*permissions: str) -> "Actor":
+DEFAULT_TEST_HOUSEHOLD_ID = "hh-1"  # matches the household_id="hh-1" convention already used throughout tests/
+
+
+def make_actor(*permissions: str, household_id: str = DEFAULT_TEST_HOUSEHOLD_ID) -> "Actor":
     from app.authorization import Actor
 
-    return Actor(user_id=str(uuid.uuid4()), permissions=frozenset(permissions))
+    return Actor(user_id=str(uuid.uuid4()), household_id=household_id, permissions=frozenset(permissions))
 
 
 __all__ = [

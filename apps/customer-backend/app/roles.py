@@ -9,7 +9,7 @@ authorization happens server-side.
 from collections.abc import Callable
 
 from .audit import AuditRecorder
-from .authorization import Actor, require_permission
+from .authorization import Actor, CrossHouseholdAccessError, require_permission
 from .uow import UnitOfWork
 
 # Customer-facing roles - what a customer admin may assign to a household
@@ -155,6 +155,22 @@ class RoleManagementService:
             raise UnknownRoleError(role_key)
 
         with self._uow_factory() as uow:
+            # 3. Data isolation: users:manage grants the *kind* of action,
+            # not authority over any user_id an actor happens to name -
+            # a target belonging to a different household is refused
+            # even though the permission check above already passed.
+            target_user = uow.users.get_by_id(target_user_id)
+            if target_user is not None and target_user.household_id != actor.household_id:
+                self._audit.record(
+                    actor=actor,
+                    action="roles.assignment_blocked",
+                    target_type="user",
+                    target_id=target_user_id,
+                    outcome="failure",
+                    metadata={"attemptedRole": role_key, "reason": "cross_household"},
+                )
+                raise CrossHouseholdAccessError()
+
             role_id = uow.roles.get_id_by_key(role_key)
             if role_id is None:
                 raise UnknownRoleError(role_key)

@@ -105,6 +105,7 @@ Nach jeder Arbeitseinheit gilt die Testfrage: „Wenn ich jetzt sofort verschwin
 - [`docs/architecture/protected-actions.md`](docs/architecture/protected-actions.md) — Neue Freigabe pro geschützter Aktion (keine PIN-Freischaltsession), Biometrie als Eingabe-Ersatz, Admin-Opt-in pro Nutzer (Notion-Aufgabe `S1V2-02-012`)
 - [`docs/architecture/secrets-management.md`](docs/architecture/secrets-management.md) — Verschlüsselte Integrations-Secrets, Rotation/Widerruf, Diagnose-Redaction, Repository-Secret-Scan (Notion-Aufgabe `S1V2-02-013`)
 - [`docs/architecture/audit-log.md`](docs/architecture/audit-log.md) — Hash-Chain-Manipulationsnachweis für Audit-Events, Meta-Audit der Logeinsicht (Notion-Aufgabe `S1V2-02-014`)
+- [`docs/architecture/security-testharness.md`](docs/architecture/security-testharness.md) — `security`-Pytest-Marker, eigener CI-Schritt, Actor.household_id/require_same_household() als Datenisolations-Fix (Notion-Aufgabe `S1V2-02-015`)
 - [`docs/architecture/adr-0002-home-assistant-backbone.md`](docs/architecture/adr-0002-home-assistant-backbone.md) — **verbindliche Zielarchitektur** (Notion-Aufgabe `S1V2-01-001`)
 - [`docs/architecture/adr-0001-systemone-pi-pilot.md`](docs/architecture/adr-0001-systemone-pi-pilot.md) — historische Pilotarchitektur, teilweise ersetzt durch ADR-0002
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — Kurzüberblick, verweist auf ADR-0002

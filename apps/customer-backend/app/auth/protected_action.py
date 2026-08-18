@@ -17,8 +17,11 @@ regardless of which entry method was used, so a successful biometric
 assertion from a user who lacks the permission is still rejected.
 """
 
+from collections.abc import Callable
+
 from app.audit import AuditRecorder
-from app.authorization import Actor, require_permission
+from app.authorization import Actor, CrossHouseholdAccessError, require_permission
+from app.uow import UnitOfWork
 
 from .admin_area import BiometricVerifier
 from .household_pin import HouseholdPinService
@@ -56,10 +59,12 @@ class ProtectedActionGuard:
         pin_service: HouseholdPinService,
         audit: AuditRecorder,
         biometric_verifier: BiometricVerifier,
+        uow_factory: Callable[[], UnitOfWork],
     ) -> None:
         self._pin_service = pin_service
         self._audit = audit
         self._biometric_verifier = biometric_verifier
+        self._uow_factory = uow_factory
         # "Kundenadmin darf lokale Biometrie erlauben" - a persistent,
         # admin-controlled per-user decision. (Scoped to the user rather
         # than a specific paired client device: device pairing/
@@ -68,8 +73,27 @@ class ProtectedActionGuard:
         # dieser Aufgabe".)
         self._biometric_allowed: set[str] = set()
 
+    def _require_target_in_same_household(self, actor: Actor, target_user_id: str, *, action: str) -> None:
+        """Datenisolation (S1V2-02-015): a permission grant like
+        users:manage or a protected-action permission authorizes the
+        *kind* of action, never an arbitrary target_user_id outside the
+        actor's own household."""
+        with self._uow_factory() as uow:
+            target_user = uow.users.get_by_id(target_user_id)
+        if target_user is not None and target_user.household_id != actor.household_id:
+            self._audit.record(
+                actor=actor,
+                action="protected_action.denied",
+                target_type="user",
+                target_id=target_user_id,
+                outcome="failure",
+                metadata={"action": action, "reason": "cross_household"},
+            )
+            raise CrossHouseholdAccessError()
+
     def allow_biometric(self, admin_actor: Actor, *, target_user_id: str) -> None:
         require_permission(admin_actor, "users:manage")
+        self._require_target_in_same_household(admin_actor, target_user_id, action="biometric_allowed")
         self._biometric_allowed.add(target_user_id)
         self._audit.record(
             actor=admin_actor,
@@ -81,6 +105,7 @@ class ProtectedActionGuard:
 
     def disallow_biometric(self, admin_actor: Actor, *, target_user_id: str) -> None:
         require_permission(admin_actor, "users:manage")
+        self._require_target_in_same_household(admin_actor, target_user_id, action="biometric_disallowed")
         self._biometric_allowed.discard(target_user_id)
         self._audit.record(
             actor=admin_actor,
@@ -108,6 +133,7 @@ class ProtectedActionGuard:
         failure; returns None on success. `action` is a free-form label
         (e.g. "camera.view", "lock.unlock") recorded for audit only."""
         require_permission(actor, permission)
+        self._require_target_in_same_household(actor, target_user_id, action=action)
 
         if biometric_assertion is not None:
             if target_user_id not in self._biometric_allowed:

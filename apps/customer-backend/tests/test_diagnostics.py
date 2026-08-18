@@ -18,7 +18,7 @@ from app.secret_store import SecretStore
 from tests.db_conftest import migrated_db, requires_database  # noqa: F401
 from tests.fakes import make_actor
 
-pytestmark = requires_database
+pytestmark = [requires_database, pytest.mark.security]
 
 TEST_SECRET_VALUE = "hass-super-secret-test-token-98765"
 
@@ -45,7 +45,7 @@ def rig(migrated_db):
     session_factory = _session_factory()
     key = Fernet.generate_key()
     store = SecretStore(session_factory=session_factory, audit=InMemoryAuditRecorder(), fernet_factory=lambda: Fernet(key))
-    admin = make_actor("integrations:manage")
+    admin = make_actor("integrations:manage", household_id=str(household.id))
     store.set_secret(admin, integration_id=str(integration.id), key="long_lived_token", value=TEST_SECRET_VALUE)
 
     return session_factory, str(household.id), str(integration.id)

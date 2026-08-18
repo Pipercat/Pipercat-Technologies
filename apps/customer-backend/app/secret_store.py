@@ -22,7 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
 from .audit import AuditRecorder
-from .authorization import Actor, require_permission
+from .authorization import Actor, CrossHouseholdAccessError, require_permission
 from .db.models import Integration, IntegrationSecret
 
 SECRETS_ENCRYPTION_KEY_ENV = "SECRETS_ENCRYPTION_KEY"
@@ -85,6 +85,16 @@ class SecretStore:
             integration = session.get(Integration, uuid.UUID(integration_id))
             if integration is None:
                 raise IntegrationNotFoundError(integration_id)
+            if str(integration.household_id) != actor.household_id:
+                self._audit.record(
+                    actor=actor,
+                    action="secret.blocked",
+                    target_type="integration",
+                    target_id=integration_id,
+                    outcome="failure",
+                    metadata={"key": key, "reason": "cross_household"},
+                )
+                raise CrossHouseholdAccessError()
 
             existing = session.scalars(
                 select(IntegrationSecret).where(
@@ -111,6 +121,18 @@ class SecretStore:
     def revoke_secret(self, actor: Actor, *, integration_id: str, key: str) -> None:
         require_permission(actor, "integrations:manage")
         with self._session_factory() as session:
+            integration = session.get(Integration, uuid.UUID(integration_id))
+            if integration is not None and str(integration.household_id) != actor.household_id:
+                self._audit.record(
+                    actor=actor,
+                    action="secret.blocked",
+                    target_type="integration",
+                    target_id=integration_id,
+                    outcome="failure",
+                    metadata={"key": key, "reason": "cross_household"},
+                )
+                raise CrossHouseholdAccessError()
+
             existing = session.scalars(
                 select(IntegrationSecret).where(
                     IntegrationSecret.integration_id == uuid.UUID(integration_id), IntegrationSecret.key == key

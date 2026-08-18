@@ -20,6 +20,8 @@ from app.auth import (
 from app.repositories.records import UserRecord
 from tests.fakes import FakeUnitOfWork
 
+pytestmark = pytest.mark.security
+
 
 @pytest.fixture
 def rig():
@@ -36,7 +38,7 @@ def rig():
     )
     sessions = SessionStore()
     raw_token, _session = sessions.create(
-        user_id="user-1", permissions=frozenset({"users:manage"}), device_label="phone", ttl=timedelta(hours=1)
+        user_id="user-1", household_id="hh-1", permissions=frozenset({"users:manage"}), device_label="phone", ttl=timedelta(hours=1)
     )
     audit = InMemoryAuditRecorder()
     biometrics = FakeBiometricVerifier()

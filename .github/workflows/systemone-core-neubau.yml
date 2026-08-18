@@ -50,6 +50,41 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: pytest -q
 
+  security-tests:
+    # S1V2-02-015: its own dedicated security-test step, distinct from the
+    # general `customer-backend` job above - runs only tests marked
+    # `security` (authentication, authorization, privilege escalation,
+    # household PIN, rate limits, CSRF, tampered IDs/data isolation, audit
+    # tampering, secret leaks), so a security regression is visible as its
+    # own failing check, not buried inside a large general test run.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/customer-backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: systemone
+          POSTGRES_PASSWORD: systemone
+          POSTGRES_DB: systemone_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://systemone:systemone@localhost:5432/systemone_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e ".[dev]"
+      - run: pytest -m security -q
+
   hq-backend:
     runs-on: ubuntu-latest
     defaults:

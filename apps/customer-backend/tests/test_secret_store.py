@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from app.audit import InMemoryAuditRecorder
-from app.authorization import AuthorizationError
+from app.authorization import AuthorizationError, CrossHouseholdAccessError
 from app.db.models import Household, Integration, IntegrationSecret
 from app.secret_store import (
     IntegrationNotFoundError,
@@ -23,7 +23,7 @@ from app.secret_store import (
 from tests.db_conftest import migrated_db, requires_database  # noqa: F401
 from tests.fakes import make_actor
 
-pytestmark = requires_database
+pytestmark = [requires_database, pytest.mark.security]
 
 
 def _session_factory():
@@ -43,7 +43,7 @@ def rig(migrated_db):
     key = Fernet.generate_key()
     audit = InMemoryAuditRecorder()
     store = SecretStore(session_factory=_session_factory(), audit=audit, fernet_factory=lambda: Fernet(key))
-    admin = make_actor("integrations:manage")
+    admin = make_actor("integrations:manage", household_id=str(household.id))
     return store, migrated_db, audit, admin, str(integration.id)
 
 
@@ -129,6 +129,30 @@ def test_secret_operations_are_scoped_per_integration(rig):
     store.set_secret(admin, integration_id=integration_id, key="shared_key_name", value="value-for-first")
 
     assert store.has_secret(integration_id=str(other.id), key="shared_key_name") is False
+
+
+def test_set_secret_on_another_households_integration_is_rejected(rig):
+    """S1V2-02-015 "Datenisolation": holding integrations:manage does not
+    authorize acting on an integration that belongs to a different
+    household - only checking the permission would miss this."""
+    store, _db, _audit, _admin, integration_id = rig
+    attacker = make_actor("integrations:manage", household_id="some-other-household")
+
+    with pytest.raises(CrossHouseholdAccessError):
+        store.set_secret(attacker, integration_id=integration_id, key="k", value="v")
+
+    assert store.has_secret(integration_id=integration_id, key="k") is False
+
+
+def test_revoke_secret_on_another_households_integration_is_rejected(rig):
+    store, _db, _audit, admin, integration_id = rig
+    store.set_secret(admin, integration_id=integration_id, key="k", value="v")
+    attacker = make_actor("integrations:manage", household_id="some-other-household")
+
+    with pytest.raises(CrossHouseholdAccessError):
+        store.revoke_secret(attacker, integration_id=integration_id, key="k")
+
+    assert store.has_secret(integration_id=integration_id, key="k") is True
 
 
 def test_audit_trail_records_set_access_and_revoke(rig):

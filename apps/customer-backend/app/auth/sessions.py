@@ -25,6 +25,7 @@ def _hash_token(raw_token: str) -> str:
 
 class StoredSession(BaseModel):
     user_id: str
+    household_id: str
     permissions: frozenset[str]
     device_label: str
     csrf_token: str
@@ -41,12 +42,13 @@ class SessionStore:
         self._sessions: dict[str, StoredSession] = {}  # keyed by token hash
 
     def create(
-        self, *, user_id: str, permissions: frozenset[str], device_label: str, ttl: timedelta
+        self, *, user_id: str, household_id: str, permissions: frozenset[str], device_label: str, ttl: timedelta
     ) -> tuple[str, StoredSession]:
         raw_token = secrets.token_urlsafe(32)
         now = datetime.now(UTC)
         session = StoredSession(
             user_id=user_id,
+            household_id=household_id,
             permissions=permissions,
             device_label=device_label,
             csrf_token=secrets.token_urlsafe(24),
@@ -75,5 +77,9 @@ class SessionStore:
             return None
         session.revoked = True
         return self.create(
-            user_id=session.user_id, permissions=session.permissions, device_label=session.device_label, ttl=ttl
+            user_id=session.user_id,
+            household_id=session.household_id,
+            permissions=session.permissions,
+            device_label=session.device_label,
+            ttl=ttl,
         )

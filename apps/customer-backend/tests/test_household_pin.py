@@ -22,6 +22,8 @@ from app.authorization import AuthorizationError
 from app.repositories.records import UserRecord
 from tests.fakes import FakeUnitOfWork, make_actor
 
+pytestmark = pytest.mark.security
+
 
 @pytest.fixture
 def rig():
@@ -170,7 +172,7 @@ async def test_reset_lockout_requires_the_admins_own_admin_area_to_be_unlocked(r
     assert service.is_locked("user-1", now=t) is not None
 
     admin_token, _session = sessions.create(
-        user_id="admin-1", permissions=frozenset({"users:manage"}), device_label="admin-phone", ttl=timedelta(hours=1)
+        user_id="admin-1", household_id="hh-1", permissions=frozenset({"users:manage"}), device_label="admin-phone", ttl=timedelta(hours=1)
     )
     # Admin has a valid *session* but has not freshly re-authenticated into
     # their own admin area - reset must still be refused.
@@ -199,7 +201,7 @@ async def test_reset_lockout_succeeds_once_admin_freshly_unlocked(rig):
     assert service.is_locked("user-1", now=t) is not None
 
     admin_token, _session = sessions.create(
-        user_id="admin-1", permissions=frozenset({"users:manage"}), device_label="admin-phone", ttl=timedelta(hours=1)
+        user_id="admin-1", household_id="hh-1", permissions=frozenset({"users:manage"}), device_label="admin-phone", ttl=timedelta(hours=1)
     )
     await admin_area.unlock_admin_area(admin_token, password="admin-password", now=t)
 
@@ -214,7 +216,7 @@ async def test_reset_lockout_requires_users_manage_permission(rig):
     service, _uow, _audit, sessions, admin_area, _admin = rig
     unauthorized = make_actor()  # holds no permissions at all
     admin_token, _session = sessions.create(
-        user_id="user-x", permissions=frozenset(), device_label="d", ttl=timedelta(hours=1)
+        user_id="user-x", household_id="hh-1", permissions=frozenset(), device_label="d", ttl=timedelta(hours=1)
     )
 
     with pytest.raises(AuthorizationError):

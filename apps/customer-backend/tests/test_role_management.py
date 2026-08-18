@@ -16,6 +16,8 @@ from app.roles import (
 )
 from tests.fakes import FakeUnitOfWork, make_actor
 
+pytestmark = pytest.mark.security
+
 
 @pytest.fixture
 def rig():

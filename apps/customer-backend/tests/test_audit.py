@@ -16,7 +16,7 @@ from app.db.models import AuditEvent, Household, Role, User
 from tests.db_conftest import migrated_db, requires_database  # noqa: F401
 from tests.fakes import make_actor
 
-pytestmark = requires_database
+pytestmark = [requires_database, pytest.mark.security]
 
 
 def _session_factory():
@@ -38,7 +38,7 @@ def _make_real_admin_actor(db) -> Actor:
     user = User(household_id=household.id, role_id=role.id, display_name="Admin")
     db.add(user)
     db.commit()
-    return Actor(user_id=str(user.id), permissions=frozenset({"audit:read"}))
+    return Actor(user_id=str(user.id), household_id=str(household.id), permissions=frozenset({"audit:read"}))
 
 
 @pytest.fixture

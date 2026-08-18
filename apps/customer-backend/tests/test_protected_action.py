@@ -25,6 +25,8 @@ from app.authorization import AuthorizationError
 from app.repositories.records import UserRecord
 from tests.fakes import FakeUnitOfWork, make_actor
 
+pytestmark = pytest.mark.security
+
 CAMERA_VIEW = "camera:view"
 LOCK_UNLOCK = "lock:unlock"
 
@@ -49,7 +51,9 @@ def rig():
     )
     pin_service = HouseholdPinService(uow_factory=lambda: uow, audit=audit, admin_area=admin_area)
     biometric_verifier = FakeBiometricVerifier()
-    guard = ProtectedActionGuard(pin_service=pin_service, audit=audit, biometric_verifier=biometric_verifier)
+    guard = ProtectedActionGuard(
+        pin_service=pin_service, audit=audit, biometric_verifier=biometric_verifier, uow_factory=lambda: uow
+    )
     admin = make_actor("users:manage")
     actor = make_actor(CAMERA_VIEW, LOCK_UNLOCK)
     return guard, pin_service, audit, biometric_verifier, admin, actor

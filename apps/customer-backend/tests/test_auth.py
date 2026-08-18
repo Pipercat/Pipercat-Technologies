@@ -23,6 +23,8 @@ from app.authorization import AuthorizationError, WildcardPermissionError, requi
 from app.repositories.records import UserRecord
 from tests.fakes import FakeUnitOfWork
 
+pytestmark = pytest.mark.security
+
 
 ROLE_MEMBER = "role-member"
 
@@ -137,7 +139,7 @@ async def test_authenticate_with_expired_session_fails(rig):
     service, uow, audit, sessions, _rl = rig
     # ttl in the past -> immediately expired, no need to sleep in a test.
     raw_token, _session = sessions.create(
-        user_id="user-1", permissions=frozenset({"rooms:read"}), device_label="d", ttl=timedelta(seconds=-1)
+        user_id="user-1", household_id="hh-1", permissions=frozenset({"rooms:read"}), device_label="d", ttl=timedelta(seconds=-1)
     )
 
     with pytest.raises(SessionExpiredError):
@@ -162,7 +164,7 @@ async def test_authenticate_with_revoked_session_fails(rig):
 async def test_session_rotation_invalidates_the_old_token(rig):
     _service, _uow, _audit, sessions, _rl = rig
     raw_token, _session = sessions.create(
-        user_id="user-1", permissions=frozenset({"rooms:read"}), device_label="d", ttl=timedelta(hours=1)
+        user_id="user-1", household_id="hh-1", permissions=frozenset({"rooms:read"}), device_label="d", ttl=timedelta(hours=1)
     )
 
     rotated = sessions.rotate(raw_token, ttl=timedelta(hours=1))
@@ -201,4 +203,4 @@ async def test_session_actor_cannot_exceed_its_granted_permissions(rig):
 
 def test_wildcard_permission_is_never_allowed_no_customer_root():
     with pytest.raises(WildcardPermissionError):
-        Actor(user_id="user-1", permissions=frozenset({"*"}))
+        Actor(user_id="user-1", household_id="hh-1", permissions=frozenset({"*"}))

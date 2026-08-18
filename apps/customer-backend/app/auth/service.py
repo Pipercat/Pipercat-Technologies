@@ -77,9 +77,13 @@ class AuthenticationService:
             raise InvalidCredentialsError("Invalid user id or password.")
 
         self._rate_limiter.reset(rate_key)
-        actor = Actor(user_id=user.id, permissions=permissions)
+        actor = Actor(user_id=user.id, household_id=user.household_id, permissions=permissions)
         raw_token, _session = self._sessions.create(
-            user_id=user.id, permissions=permissions, device_label=device_label, ttl=self._session_ttl
+            user_id=user.id,
+            household_id=user.household_id,
+            permissions=permissions,
+            device_label=device_label,
+            ttl=self._session_ttl,
         )
         self._audit.record(
             actor=actor, action="auth.login_succeeded", target_type="user", target_id=user.id, outcome="success"
@@ -108,14 +112,18 @@ class AuthenticationService:
                 outcome="failure",
             )
             raise SessionExpiredError("This session has expired.")
-        return Actor(user_id=session.user_id, permissions=session.permissions)
+        return Actor(user_id=session.user_id, household_id=session.household_id, permissions=session.permissions)
 
     async def logout(self, raw_token: str) -> None:
         session = self._sessions.lookup(raw_token)
         revoked = self._sessions.revoke(raw_token)
         if revoked:
             self._audit.record(
-                actor=Actor(user_id=session.user_id, permissions=frozenset()) if session else None,
+                actor=(
+                    Actor(user_id=session.user_id, household_id=session.household_id, permissions=frozenset())
+                    if session
+                    else None
+                ),
                 action="auth.logout",
                 target_type="user",
                 target_id=session.user_id if session else None,
