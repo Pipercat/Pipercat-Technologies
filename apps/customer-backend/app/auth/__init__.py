@@ -1,3 +1,10 @@
+from .admin_area import (
+    AdminAreaLockedError,
+    AdminAreaService,
+    BiometricVerifier,
+    FakeBiometricVerifier,
+    StepUpAuthenticationError,
+)
 from .csrf import CsrfValidationError, validate_csrf
 from .password_hashing import hash_password, needs_rehash, verify_password
 from .rate_limiter import RateLimiter
@@ -26,4 +33,9 @@ __all__ = [
     "SessionRevokedError",
     "UnknownSessionError",
     "RateLimitExceededError",
+    "AdminAreaService",
+    "AdminAreaLockedError",
+    "StepUpAuthenticationError",
+    "BiometricVerifier",
+    "FakeBiometricVerifier",
 ]
