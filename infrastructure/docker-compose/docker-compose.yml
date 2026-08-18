@@ -18,9 +18,29 @@ services:
       - DATABASE_URL=postgresql://systemone:systemone@postgres:5432/systemone
       - MQTT_BROKER_URL=mqtt://mosquitto:1883
       - SYSTEMONE_PRODUCT_CLASS=pi
+      - HOME_ASSISTANT_URL=http://home-assistant:8123
     depends_on:
       - postgres
       - mosquitto
+      - home-assistant
+
+  # S1V2-02-021: Home Assistant is SystemONE's internal smart-home backbone
+  # (ADR-0002), never a service the end customer interacts with directly.
+  # No `ports:` mapping on purpose - unlike postgres/mosquitto above, this
+  # container is reachable only from other containers on the compose
+  # network (as `home-assistant:8123`), never from the host, so there is
+  # no raw Home Assistant URL a customer could open even by guessing one.
+  # customer-backend's own HomeAssistantSupervisor (app/services/
+  # ha_supervisor.py) starts/stops/health-checks this container - it is
+  # deliberately not given a `restart:` policy here, since SystemONE
+  # itself, not Docker, decides when this service should be running.
+  # `ha-config` is a persistent volume so container restarts/rebuilds
+  # (including future SystemONE-controlled HA updates) never lose the
+  # onboarded HA instance's state.
+  home-assistant:
+    image: homeassistant/home-assistant:stable
+    volumes:
+      - ha-config:/config
 
   postgres:
     image: postgres:16-alpine
@@ -38,3 +58,4 @@ services:
 
 volumes:
   postgres-data:
+  ha-config:
