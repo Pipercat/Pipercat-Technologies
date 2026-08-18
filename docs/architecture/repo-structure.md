@@ -53,9 +53,9 @@ Für Flutter/Dart und für noch nicht implementierte Bereiche (`hq-frontend`, `w
 
 ## Build-/Testnachweis
 
-| Paket | Kommando | Ergebnis (17.08.2026) |
+| Paket | Kommando | Ergebnis (18.08.2026) |
 |---|---|---|
-| `apps/customer-backend` | `pytest` (mit `DATABASE_URL` gesetzt, Python 3.12 empfohlen — siehe `docs/architecture/data-model.md` für einen Python-3.14-Sandbox-Hinweis; MQTT-Tests brauchen zusätzlich ein lokales `mosquitto`) | 143 passed (126 aus `S1V2-01-003`–`S1V2-02-010` + 17 neue Haushalts-PIN-Tests aus `S1V2-02-011`, siehe `docs/architecture/household-pin.md`) |
+| `apps/customer-backend` | `pytest` (mit `DATABASE_URL` gesetzt — Schema `postgresql+psycopg://...`, siehe `docs/architecture/protected-actions.md` Betriebshinweis; Python 3.12 empfohlen, siehe `docs/architecture/data-model.md` für einen Python-3.14-Sandbox-Hinweis; MQTT-Tests brauchen zusätzlich ein lokales `mosquitto`) | 155 passed (143 aus `S1V2-01-003`–`S1V2-02-011` + 12 neue Tests für geschützte Aktionen aus `S1V2-02-012`, siehe `docs/architecture/protected-actions.md`) |
 | `apps/hq-backend` | `pytest` | 1 passed |
 | `services/home-assistant-adapter` | `pytest` | 2 passed |
 | `infrastructure/docker-compose` | `docker compose config` | erfolgreich validiert |

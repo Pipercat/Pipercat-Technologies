@@ -14,6 +14,12 @@ from .household_pin import (
     PinNotEnabledError,
 )
 from .password_hashing import hash_password, needs_rehash, verify_password
+from .protected_action import (
+    BiometricNotAllowedError,
+    BiometricVerificationFailedError,
+    NoCredentialSuppliedError,
+    ProtectedActionGuard,
+)
 from .rate_limiter import RateLimiter
 from .service import (
     AuthenticationService,
@@ -50,4 +56,8 @@ __all__ = [
     "InvalidPinFormatError",
     "PinLockedError",
     "PinNotEnabledError",
+    "ProtectedActionGuard",
+    "BiometricNotAllowedError",
+    "BiometricVerificationFailedError",
+    "NoCredentialSuppliedError",
 ]

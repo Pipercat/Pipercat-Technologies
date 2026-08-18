@@ -102,6 +102,7 @@ Nach jeder Arbeitseinheit gilt die Testfrage: „Wenn ich jetzt sofort verschwin
 - [`docs/architecture/role-management.md`](docs/architecture/role-management.md) — Rollenkatalog, geschützte Rollen, Eskalationsschutz (Notion-Aufgabe `S1V2-02-009`)
 - [`docs/architecture/admin-area-lock.md`](docs/architecture/admin-area-lock.md) — Admin-Bereich-Zweitfreischaltung, Zeitablauf/Hintergrundsperre, Schutz vor manipulierten Clients (Notion-Aufgabe `S1V2-02-010`)
 - [`docs/architecture/household-pin.md`](docs/architecture/household-pin.md) — Haushalts-PIN, Sperrstaffel, Admin-Reset an frische Adminauthentifizierung gekoppelt (Notion-Aufgabe `S1V2-02-011`)
+- [`docs/architecture/protected-actions.md`](docs/architecture/protected-actions.md) — Neue Freigabe pro geschützter Aktion (keine PIN-Freischaltsession), Biometrie als Eingabe-Ersatz, Admin-Opt-in pro Nutzer (Notion-Aufgabe `S1V2-02-012`)
 - [`docs/architecture/adr-0002-home-assistant-backbone.md`](docs/architecture/adr-0002-home-assistant-backbone.md) — **verbindliche Zielarchitektur** (Notion-Aufgabe `S1V2-01-001`)
 - [`docs/architecture/adr-0001-systemone-pi-pilot.md`](docs/architecture/adr-0001-systemone-pi-pilot.md) — historische Pilotarchitektur, teilweise ersetzt durch ADR-0002
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — Kurzüberblick, verweist auf ADR-0002
