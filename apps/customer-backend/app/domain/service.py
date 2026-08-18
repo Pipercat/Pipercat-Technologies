@@ -6,7 +6,7 @@ service code works unmodified whether it's wired to SimulationDeviceAdapter
 from .adapter_port import DeviceAdapterPort
 from .capabilities import CapabilityCommand
 from .device import DomainDevice
-from .errors import DeviceNotFoundError
+from .errors import CapabilityNotSupportedError, DeviceNotFoundError
 
 
 class DeviceService:
@@ -23,8 +23,13 @@ class DeviceService:
         raise DeviceNotFoundError(device_id)
 
     async def send_command(self, device_id: str, command: CapabilityCommand):
-        # Existence is re-checked here even though most adapters will also
-        # check it, so DeviceNotFoundError is a reliable domain-level
-        # contract regardless of adapter implementation quality.
-        await self.get_device(device_id)
+        # Existence and capability support are both re-checked here even
+        # though most adapters will also check them, so DeviceNotFoundError/
+        # CapabilityNotSupportedError are reliable domain-level contracts
+        # regardless of adapter implementation quality (S1V2-02-019:
+        # "Capability- ... Prüfung vor Ausführung" - enforced here, not
+        # left to whichever adapter happens to be wired in).
+        device = await self.get_device(device_id)
+        if command.type not in device.capabilities:
+            raise CapabilityNotSupportedError(device_id, command.type.value)
         return await self._adapter.apply_command(device_id, command)
