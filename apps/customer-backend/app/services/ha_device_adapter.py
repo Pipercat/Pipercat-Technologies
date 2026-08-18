@@ -21,7 +21,8 @@ API routes - ever sees a `home_assistant_adapter`-specific type.
 exactly what that domain error already means (see app/domain/errors.py).
 """
 
-from typing import Any
+from collections.abc import AsyncIterator
+from typing import Any, Literal, TypedDict
 
 from pydantic import TypeAdapter
 
@@ -34,6 +35,18 @@ from home_assistant_adapter.errors import TransientDeviceError as HATransientDev
 from app.domain.capabilities import CapabilityCommand, CapabilityState
 from app.domain.device import DomainDevice
 from app.domain.errors import CapabilityNotSupportedError, DeviceNotFoundError, TransientDeviceError
+
+
+class ResyncEvent(TypedDict):
+    kind: Literal["resync"]
+
+
+class DeviceChangedEvent(TypedDict):
+    kind: Literal["device_changed"]
+    device: DomainDevice
+
+
+LiveEvent = ResyncEvent | DeviceChangedEvent
 
 
 class TranslatingHomeAssistantAdapter:
@@ -60,6 +73,25 @@ class TranslatingHomeAssistantAdapter:
         except (HomeAssistantConnectionError, HomeAssistantAuthError, HATransientDeviceError) as exc:
             raise TransientDeviceError(str(exc)) from exc
         return _dict_to_capability_state(raw_state)
+
+    async def subscribe_events(self) -> AsyncIterator[LiveEvent]:
+        """Translates `HomeAssistantAdapter.subscribe_events()`'s
+        `{"kind": "resync"}` / `{"kind": "device_changed", "device": <dict>}`
+        items (S1V2-02-020) the same way `list_devices()` does: raw dicts
+        become real `DomainDevice` models, nothing above this module ever
+        sees HA-shaped data. The `HomeAssistantConnectionError`/
+        `HomeAssistantAuthError`/`TransientDeviceError` translation other
+        methods do is intentionally *not* needed here - the underlying
+        client already retries connection/auth/transient failures forever
+        internally (see `home_assistant_adapter.ha_client`'s reconnect
+        loop) and signals every successful (re)connect as a `resync` item
+        instead of raising, so from this method's perspective those
+        failures never surface as exceptions in the first place."""
+        async for item in self._adapter.subscribe_events():
+            if item["kind"] == "resync":
+                yield {"kind": "resync"}
+            else:
+                yield {"kind": "device_changed", "device": DomainDevice(**item["device"])}
 
 
 def _command_to_dict(command: CapabilityCommand) -> dict[str, Any]:

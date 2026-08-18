@@ -112,6 +112,6 @@ async def test_subscribe_events_receives_a_real_state_change(adapter):
 
 async def _first_matching_event(adapter: HomeAssistantAdapter, entity_id: str) -> dict:
     async for event in adapter.subscribe_events():
-        if event["entityId"] == entity_id:
+        if event["kind"] == "device_changed" and event["entityId"] == entity_id:
             return event
     raise AssertionError("event stream ended without a matching event")  # pragma: no cover

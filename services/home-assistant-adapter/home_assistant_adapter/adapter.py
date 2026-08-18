@@ -87,13 +87,29 @@ class HomeAssistantAdapter:
         return [{"id": row["id"], "areaId": row.get("area_id")} for row in result]
 
     async def subscribe_events(self) -> AsyncIterator[dict[str, Any]]:
-        """Yields normalized {"deviceId", "entityId", "state"} dicts for
-        every live Home Assistant state_changed event, reconnecting
-        transparently on connection loss (see HomeAssistantClient)."""
-        async for event in self._client.subscribe_events("state_changed"):
-            new_state = event.get("data", {}).get("new_state")
+        """Yields normalized items for every live Home Assistant
+        state_changed event, reconnecting transparently on connection loss
+        (see HomeAssistantClient):
+
+        - `{"kind": "resync"}` every time the underlying subscription is
+          (re)established - including the very first one. Signals "treat
+          this as a fresh start: fetch a full snapshot via list_devices()
+          and reconcile" (S1V2-02-020) rather than "wait for the next
+          incremental update" - the only way to recover state changes that
+          happened while disconnected, since Home Assistant's event stream
+          itself has no concept of "catch me up from timestamp X".
+        - `{"kind": "device_changed", "deviceId", "entityId", "device"}`
+          for each incremental state_changed event - unchanged shape from
+          before S1V2-02-020, plus the new "kind" key.
+        """
+        async for item in self._client.subscribe_events("state_changed"):
+            if item["kind"] == "connected":
+                yield {"kind": "resync"}
+                continue
+
+            new_state = item["event"].get("data", {}).get("new_state")
             if new_state is None:  # entity removed - nothing to report
                 continue
             device = state_to_device_dict(new_state)
             self._entity_id_by_device_id[device["id"]] = new_state["entity_id"]
-            yield {"deviceId": device["id"], "entityId": new_state["entity_id"], "device": device}
+            yield {"kind": "device_changed", "deviceId": device["id"], "entityId": new_state["entity_id"], "device": device}

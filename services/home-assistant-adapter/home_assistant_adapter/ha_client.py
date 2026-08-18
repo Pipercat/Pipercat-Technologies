@@ -122,7 +122,18 @@ class HomeAssistantClient:
         """Yields Home Assistant events forever, transparently reconnecting
         (with capped exponential backoff) on any connection drop - callers
         never see a raised exception for a transient disconnect, only a
-        brief gap in the stream, matching "Reconnect... sauber kapseln"."""
+        brief gap in the stream, matching "Reconnect... sauber kapseln".
+
+        Every time a subscription is (re)established - including the very
+        first one - yields a `{"kind": "connected"}` marker before any
+        `{"kind": "event", "event": ...}` items, so a caller can tell
+        "this is a fresh subscription, anything could have changed while
+        we weren't listening" apart from "this is one more incremental
+        update" without this module needing to know anything about
+        SystemONE's domain state (S1V2-02-020: "nach Wiederverbindung zu
+        konsistentem Zustand" - the resync trigger, not the resync logic
+        itself, belongs here; the diff/publish logic lives above the
+        adapter boundary)."""
         backoff = DEFAULT_RECONNECT_BACKOFF_SECONDS
         while True:
             try:
@@ -140,11 +151,15 @@ class HomeAssistantClient:
                     raise TransientDeviceError(f"Failed to subscribe to '{event_type}': {ack.get('error')}")
 
                 backoff = DEFAULT_RECONNECT_BACKOFF_SECONDS  # reset after a successful (re)subscription
+                yield {"kind": "connected"}
                 async for raw_message in ws:
                     message = json.loads(raw_message)
                     if message.get("type") == "event":
-                        yield message["event"]
-            except (ConnectionClosed, OSError):
+                        yield {"kind": "event", "event": message["event"]}
+            except (ConnectionClosed, OSError, TransientDeviceError):
+                # A rejected (re)subscription is exactly as retryable as a
+                # dropped connection - both mean "we have no live event
+                # feed right now", never a reason to kill the generator.
                 continue  # reconnect loop above handles backoff
             finally:
                 await ws.close()

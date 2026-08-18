@@ -51,8 +51,9 @@ class FakeHomeAssistantClient:
         self._events.append(event)
 
     async def subscribe_events(self, event_type: str = "state_changed") -> AsyncIterator[dict]:
+        yield {"kind": "connected"}
         for event in self._events:
-            yield event
+            yield {"kind": "event", "event": event}
 
     async def aclose(self) -> None:
         pass
@@ -137,7 +138,11 @@ async def test_list_device_registry_maps_ha_rows():
     assert devices == [{"id": "device-1", "areaId": "living_room"}]
 
 
-async def test_subscribe_events_yields_normalized_device_updates():
+async def test_subscribe_events_yields_a_resync_marker_before_any_device_update():
+    """S1V2-02-020: every (re)subscription - including the very first -
+    must surface a resync trigger before any incremental update, so a
+    caller building an in-memory snapshot always gets "start fresh" before
+    "here's one more delta"."""
     adapter, fake = _adapter_with_fake_client([])
     fake.queue_event(
         {
@@ -151,9 +156,11 @@ async def test_subscribe_events_yields_normalized_device_updates():
 
     events = [event async for event in adapter.subscribe_events()]
 
-    assert len(events) == 1
-    assert events[0]["entityId"] == "light.bed_light"
-    assert events[0]["deviceId"] == derive_device_id("light.bed_light")
+    assert events[0] == {"kind": "resync"}
+    assert len(events) == 2
+    assert events[1]["kind"] == "device_changed"
+    assert events[1]["entityId"] == "light.bed_light"
+    assert events[1]["deviceId"] == derive_device_id("light.bed_light")
 
 
 async def test_subscribe_events_populates_the_entity_lookup_cache():
