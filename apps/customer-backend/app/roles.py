@@ -44,6 +44,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             "backup:manage",
             "updates:approve",
             "integrations:manage",
+            "audit:read",
         }
     ),
     "administrator": frozenset(
@@ -58,6 +59,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             "users:manage",
             "emergency:manage",
             "integrations:manage",
+            "audit:read",
         }
     ),
     "member": frozenset({"rooms:read", "devices:read", "devices:control", "automations:read"}),
@@ -67,7 +69,9 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     # any role in this catalog (least-privilege service role).
     "service": frozenset({"system:health:read", "system:metrics:read"}),
     "system": frozenset({"system:health:read", "system:metrics:read", "system:selfheal:execute"}),
-    "pipercat_support": frozenset({"system:health:read", "system:metrics:read"}),
+    # DEC-136: an authorized Pipercat support employee may view logs
+    # needed for support during a customer-approved remote session.
+    "pipercat_support": frozenset({"system:health:read", "system:metrics:read", "audit:read"}),
     "root": frozenset(
         {
             "rooms:read",
@@ -82,6 +86,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             "backup:manage",
             "updates:approve",
             "integrations:manage",
+            "audit:read",
             "system:health:read",
             "system:metrics:read",
             "system:selfheal:execute",

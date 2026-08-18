@@ -222,9 +222,16 @@ class AuditEvent(UUIDPrimaryKeyMixin, Base):
     """Append-only. Deliberately separate from the mutable fact tables
     above (S1V2-02-001: "Audit-Events getrennt von veränderbaren
     Fachdatensätzen") and has no updated_at/deleted_at — nothing about an
-    audit event is ever mutated or removed. Manipulation-protection
-    (hash-chaining etc.) is S1V2-02-014's job; this is the storage shape it
-    builds on."""
+    audit event is ever mutated or removed.
+
+    Manipulation-protection (S1V2-02-014): `sequence_number`/
+    `previous_hash`/`record_hash` form a hash chain — each record's hash
+    covers its own fields plus the previous record's hash, so editing,
+    reordering, or deleting any historical row is detectable via
+    `app/audit.py::verify_chain_integrity()`. These three columns are
+    only ever set by `SqlAlchemyAuditRecorder.record()`, never computed
+    elsewhere, so there is exactly one code path that can produce a
+    valid chain."""
 
     __tablename__ = "audit_events"
 
@@ -238,5 +245,11 @@ class AuditEvent(UUIDPrimaryKeyMixin, Base):
     outcome: Mapped[str] = mapped_column(String(20))
     occurred_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     event_metadata: Mapped[dict] = mapped_column(JSONB().with_variant(JSON(), "sqlite"), default=dict)
+    sequence_number: Mapped[int] = mapped_column()
+    previous_hash: Mapped[str] = mapped_column(String(64))
+    record_hash: Mapped[str] = mapped_column(String(64))
 
-    __table_args__ = (CheckConstraint(outcome.in_(["success", "failure"]), name="ck_audit_events_outcome_valid"),)  # type: ignore[union-attr]
+    __table_args__ = (
+        CheckConstraint(outcome.in_(["success", "failure"]), name="ck_audit_events_outcome_valid"),  # type: ignore[union-attr]
+        UniqueConstraint("sequence_number", name="uq_audit_events_sequence_number"),
+    )

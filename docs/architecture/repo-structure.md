@@ -55,7 +55,7 @@ Für Flutter/Dart und für noch nicht implementierte Bereiche (`hq-frontend`, `w
 
 | Paket | Kommando | Ergebnis (18.08.2026) |
 |---|---|---|
-| `apps/customer-backend` | `pytest` (mit `DATABASE_URL` gesetzt — Schema `postgresql+psycopg://...`, siehe `docs/architecture/protected-actions.md` Betriebshinweis; Python 3.12 empfohlen, siehe `docs/architecture/data-model.md` für einen Python-3.14-Sandbox-Hinweis; MQTT-Tests brauchen zusätzlich ein lokales `mosquitto`) | 172 passed (155 aus `S1V2-01-003`–`S1V2-02-012` + 17 neue Tests für Secrets-/Schlüsselmanagement aus `S1V2-02-013`, siehe `docs/architecture/secrets-management.md`) |
+| `apps/customer-backend` | `pytest` (mit `DATABASE_URL` gesetzt — Schema `postgresql+psycopg://...`, siehe `docs/architecture/protected-actions.md` Betriebshinweis; Python 3.12 empfohlen, siehe `docs/architecture/data-model.md` für einen Python-3.14-Sandbox-Hinweis; MQTT-Tests brauchen zusätzlich ein lokales `mosquitto`) | 183 passed (172 aus `S1V2-01-003`–`S1V2-02-013` + 11 neue Tests für den Audit-Log-Kern aus `S1V2-02-014`, siehe `docs/architecture/audit-log.md`; zwei Bestandstests in `test_models.py` an das neue `AuditEvent`-Schema angepasst) |
 | `apps/hq-backend` | `pytest` | 1 passed |
 | `services/home-assistant-adapter` | `pytest` | 2 passed |
 | `infrastructure/docker-compose` | `docker compose config` | erfolgreich validiert |

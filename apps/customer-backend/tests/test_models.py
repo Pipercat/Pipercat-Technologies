@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from app.audit import GENESIS_HASH
 from app.db.models import AuditEvent, Capability, Device, Household, Integration, RemoteApproval, Room, Role, User
 from tests.db_conftest import migrated_db, requires_database  # noqa: F401 - fixture import
 
@@ -119,6 +120,9 @@ def test_audit_event_survives_household_deletion_with_null_reference(migrated_db
         target_type="household",
         target_id=household.id,
         outcome="success",
+        sequence_number=1,
+        previous_hash=GENESIS_HASH,
+        record_hash="0" * 64,  # not verified here - see test_audit.py for chain-integrity tests
     )
     session.add(event)
     session.commit()
@@ -136,7 +140,14 @@ def test_audit_event_survives_household_deletion_with_null_reference(migrated_db
 def test_invalid_audit_event_outcome_is_rejected(migrated_db):
     session = migrated_db
     session.add(
-        AuditEvent(action="x", target_type="y", outcome="maybe")
+        AuditEvent(
+            action="x",
+            target_type="y",
+            outcome="maybe",
+            sequence_number=1,
+            previous_hash=GENESIS_HASH,
+            record_hash="0" * 64,
+        )
     )
     with pytest.raises(IntegrityError):
         session.commit()
