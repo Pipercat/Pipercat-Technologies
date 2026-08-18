@@ -43,6 +43,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             "emergency:manage",
             "backup:manage",
             "updates:approve",
+            "integrations:manage",
         }
     ),
     "administrator": frozenset(
@@ -56,6 +57,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             "automations:manage",
             "users:manage",
             "emergency:manage",
+            "integrations:manage",
         }
     ),
     "member": frozenset({"rooms:read", "devices:read", "devices:control", "automations:read"}),
@@ -79,6 +81,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             "emergency:manage",
             "backup:manage",
             "updates:approve",
+            "integrations:manage",
             "system:health:read",
             "system:metrics:read",
             "system:selfheal:execute",

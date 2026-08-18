@@ -121,6 +121,25 @@ class Integration(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     config: Mapped[dict] = mapped_column(JSONB().with_variant(JSON(), "sqlite"), default=dict)
 
 
+class IntegrationSecret(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Encrypted credential material for one integration (S1V2-02-013).
+    Deliberately separate from `Integration.config` (DEC-118: encrypted,
+    access-restricted secret storage, not mixed into general-purpose JSON
+    config). `ciphertext` is never plaintext — see
+    `app/secret_store.py::SecretStore` for the only code path that may
+    encrypt/decrypt it. No soft-delete: `revoke_secret()` deletes the row
+    outright ("möglichst nicht speichern" — nothing is kept once no
+    longer needed, not even a decommissioned/tombstoned row)."""
+
+    __tablename__ = "integration_secrets"
+
+    integration_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("integrations.id", ondelete="CASCADE"))
+    key: Mapped[str] = mapped_column(String(100))
+    ciphertext: Mapped[str] = mapped_column(Text)
+
+    __table_args__ = (UniqueConstraint("integration_id", "key", name="uq_integration_secrets_integration_key"),)
+
+
 class Device(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     __tablename__ = "devices"
 

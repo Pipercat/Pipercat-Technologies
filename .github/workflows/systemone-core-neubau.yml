@@ -8,6 +8,7 @@ on:
       - 'packages/**'
       - 'infrastructure/**'
       - 'scripts/check-import-boundaries.py'
+      - 'scripts/check-secrets.py'
       - '.github/workflows/systemone-core-neubau.yml'
   push:
     paths:
@@ -16,6 +17,7 @@ on:
       - 'packages/**'
       - 'infrastructure/**'
       - 'scripts/check-import-boundaries.py'
+      - 'scripts/check-secrets.py'
       - '.github/workflows/systemone-core-neubau.yml'
 
 jobs:
@@ -107,3 +109,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 scripts/check-import-boundaries.py
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/check-secrets.py
