@@ -30,6 +30,13 @@ class DeviceRecord:
 
 
 @dataclass(frozen=True)
+class HouseholdRecord:
+    id: str
+    name: str
+    product_class: str
+
+
+@dataclass(frozen=True)
 class UserRecord:
     id: str
     household_id: str

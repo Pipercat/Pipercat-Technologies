@@ -28,7 +28,7 @@ pytestmark = pytest.mark.security
 @pytest.fixture
 def rig():
     uow = FakeUnitOfWork()
-    uow.users.add(
+    uow.users.seed(
         UserRecord(
             id="user-1",
             household_id="hh-1",
@@ -183,7 +183,7 @@ async def test_reset_lockout_requires_the_admins_own_admin_area_to_be_unlocked(r
 
 async def test_reset_lockout_succeeds_once_admin_freshly_unlocked(rig):
     service, uow, audit, sessions, admin_area, admin = rig
-    uow.users.add(
+    uow.users.seed(
         UserRecord(
             id="admin-1",
             household_id="hh-1",

@@ -5,7 +5,13 @@ never on SQLAlchemy directly, so unit tests can substitute in-memory fakes
 
 from typing import Protocol
 
-from .records import DeviceRecord, RoomRecord, UserRecord
+from .records import DeviceRecord, HouseholdRecord, RoomRecord, UserRecord
+
+
+class HouseholdRepository(Protocol):
+    def add(self, *, name: str, product_class: str) -> HouseholdRecord: ...
+
+    def get_by_id(self, household_id: str) -> HouseholdRecord | None: ...
 
 
 class RoomRepository(Protocol):
@@ -49,6 +55,16 @@ class DeviceRepository(Protocol):
 
 
 class UserRepository(Protocol):
+    def add(
+        self,
+        *,
+        household_id: str,
+        role_id: str,
+        display_name: str,
+        password_hash: str | None = None,
+        pin_hash: str | None = None,
+    ) -> UserRecord: ...
+
     def get_by_id(self, user_id: str) -> UserRecord | None: ...
 
     def get_permissions_for_role(self, role_id: str) -> frozenset[str]: ...

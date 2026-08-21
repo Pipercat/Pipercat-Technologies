@@ -34,7 +34,7 @@ LOCK_UNLOCK = "lock:unlock"
 @pytest.fixture
 def rig():
     uow = FakeUnitOfWork()
-    uow.users.add(
+    uow.users.seed(
         UserRecord(
             id="user-1",
             household_id="hh-1",

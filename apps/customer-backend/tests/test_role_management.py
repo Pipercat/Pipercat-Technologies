@@ -24,7 +24,7 @@ def rig():
     uow = FakeUnitOfWork()
     uow.roles.add("member", "role-member-id")
     uow.roles.add("administrator", "role-admin-id")
-    uow.users.add(
+    uow.users.seed(
         UserRecord(
             id="target-user",
             household_id="hh-1",
@@ -84,7 +84,7 @@ async def test_self_escalation_to_a_protected_role_is_blocked(rig):
     manipulated request is blocked the same way as targeting someone else."""
     service, uow, audit = rig
     actor = make_actor("users:manage")
-    uow.users.add(
+    uow.users.seed(
         UserRecord(
             id=actor.user_id,
             household_id="hh-1",

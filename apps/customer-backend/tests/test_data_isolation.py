@@ -86,7 +86,7 @@ def test_register_device_in_a_different_household_is_rejected():
 def role_rig():
     uow = FakeUnitOfWork()
     uow.roles.add("administrator", "role-admin-id")
-    uow.users.add(
+    uow.users.seed(
         UserRecord(
             id="victim-in-b",
             household_id=HOUSEHOLD_B,
@@ -122,7 +122,7 @@ async def test_assign_role_to_a_user_in_a_different_household_is_rejected(role_r
 @pytest.fixture
 def pin_rig():
     uow = FakeUnitOfWork()
-    uow.users.add(
+    uow.users.seed(
         UserRecord(
             id="victim-in-b",
             household_id=HOUSEHOLD_B,
@@ -166,7 +166,7 @@ async def test_disable_pin_for_a_user_in_a_different_household_is_rejected(pin_r
 @pytest.fixture
 def protected_action_rig():
     uow = FakeUnitOfWork()
-    uow.users.add(
+    uow.users.seed(
         UserRecord(
             id="victim-in-b",
             household_id=HOUSEHOLD_B,

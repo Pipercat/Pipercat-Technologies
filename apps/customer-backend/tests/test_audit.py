@@ -32,9 +32,10 @@ def _make_real_admin_actor(db) -> Actor:
     household = Household(name="Test", product_class="pi")
     db.add(household)
     db.commit()
-    role = Role(key="owner", name="Owner")
-    db.add(role)
-    db.commit()
+    # "owner" is seeded by alembic/versions/0005_seed_role_catalog.py
+    # (S1V2-02-028) - look it up rather than creating a duplicate, which
+    # would violate roles.key's uniqueness constraint.
+    role = db.scalars(select(Role).where(Role.key == "owner")).one()
     user = User(household_id=household.id, role_id=role.id, display_name="Admin")
     db.add(user)
     db.commit()

@@ -63,7 +63,7 @@ class _FakeDeviceAdapter:
 @pytest.fixture
 def rig():
     uow = FakeUnitOfWork()
-    uow.users.add(
+    uow.users.seed(
         UserRecord(
             id="user-1",
             household_id="hh-1",
@@ -106,7 +106,7 @@ def rig():
 
 async def _enable_pin(pin_service, uow):
     admin = Actor(user_id="admin-1", household_id="hh-1", permissions=frozenset({"users:manage"}))
-    uow.users.add(
+    uow.users.seed(
         UserRecord(
             id="admin-1", household_id="hh-1", role_id="role-owner", display_name="Admin", password_hash=None, pin_hash=None
         )

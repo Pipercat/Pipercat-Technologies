@@ -4,13 +4,14 @@ against PostgreSQL, including the transaction boundary."""
 
 import os
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from app.audit import InMemoryAuditRecorder
 from app.auth import AuthenticationService, hash_password
 from app.auth.sessions import SessionStore
-from app.db.models import Household, Integration, Permission, Role, RolePermission, User
+from app.db.models import Household, Integration, Role, User
+from app.roles import ROLE_PERMISSIONS
 from app.services.device_registration import DeviceRegistrationService
 from app.services.rooms import RoomService
 from app.uow import SqlAlchemyUnitOfWork
@@ -78,14 +79,11 @@ async def test_authentication_service_works_against_real_postgres(migrated_db):
     migrated_db.add(household)
     migrated_db.commit()
 
-    role = Role(key="member", name="Member")
-    migrated_db.add(role)
-    migrated_db.commit()
-
-    permission = Permission(key="rooms:read", description="")
-    migrated_db.add(permission)
-    migrated_db.commit()
-    migrated_db.add(RolePermission(role_id=role.id, permission_id=permission.id))
+    # "member" (with "rooms:read" already among its permissions) is seeded
+    # by alembic/versions/0005_seed_role_catalog.py (S1V2-02-028) - look
+    # it up rather than creating a duplicate, which would violate
+    # roles.key's uniqueness constraint.
+    role = migrated_db.scalars(select(Role).where(Role.key == "member")).one()
 
     user = User(
         household_id=household.id,
@@ -103,7 +101,11 @@ async def test_authentication_service_works_against_real_postgres(migrated_db):
     token, actor = await service.login(
         user_id=str(user.id), password="hunter2-but-a-real-passphrase", device_label="integration-test"
     )
-    assert actor.permissions == frozenset({"rooms:read"})
+    # Full real "member" permission set (app.roles.ROLE_PERMISSIONS), not a
+    # hand-picked subset - proves login() loads whatever the seeded
+    # catalog actually grants, not just one permission that happens to
+    # also be in it.
+    assert actor.permissions == ROLE_PERMISSIONS["member"]
 
     resolved_actor = await service.authenticate(token)
     assert resolved_actor.user_id == str(user.id)

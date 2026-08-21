@@ -5,6 +5,7 @@ test and tears the schema down after)."""
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.audit import GENESIS_HASH
@@ -39,9 +40,10 @@ def test_invalid_product_class_is_rejected_by_check_constraint(migrated_db):
 def test_household_room_device_cascade(migrated_db):
     session = migrated_db
     household = _household(session)
-    role = Role(key="owner", name="Owner")
-    session.add(role)
-    session.commit()
+    # "owner" is seeded by alembic/versions/0005_seed_role_catalog.py
+    # (S1V2-02-028) - look it up rather than creating a duplicate, which
+    # would violate roles.key's uniqueness constraint.
+    role = session.scalars(select(Role).where(Role.key == "owner")).one()
 
     room = Room(household_id=household.id, name="Living Room")
     session.add(room)

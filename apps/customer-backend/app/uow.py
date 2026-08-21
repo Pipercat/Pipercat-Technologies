@@ -7,9 +7,10 @@ from typing import Protocol
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.repositories.protocols import DeviceRepository, RoleRepository, RoomRepository, UserRepository
+from app.repositories.protocols import DeviceRepository, HouseholdRepository, RoleRepository, RoomRepository, UserRepository
 from app.repositories.sqlalchemy_repo import (
     SqlAlchemyDeviceRepository,
+    SqlAlchemyHouseholdRepository,
     SqlAlchemyRoleRepository,
     SqlAlchemyRoomRepository,
     SqlAlchemyUserRepository,
@@ -21,6 +22,7 @@ class UnitOfWork(Protocol):
     devices: DeviceRepository
     users: UserRepository
     roles: RoleRepository
+    households: HouseholdRepository
 
     def __enter__(self) -> "UnitOfWork": ...
 
@@ -42,6 +44,7 @@ class SqlAlchemyUnitOfWork:
         self.devices = SqlAlchemyDeviceRepository(self.session)
         self.users = SqlAlchemyUserRepository(self.session)
         self.roles = SqlAlchemyRoleRepository(self.session)
+        self.households = SqlAlchemyHouseholdRepository(self.session)
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:

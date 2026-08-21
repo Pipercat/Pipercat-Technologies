@@ -6,7 +6,7 @@ No database, no SQLAlchemy import anywhere in this file.
 import uuid
 
 from app.audit import InMemoryAuditRecorder
-from app.repositories.records import DeviceRecord, RoomRecord, UserRecord
+from app.repositories.records import DeviceRecord, HouseholdRecord, RoomRecord, UserRecord
 
 
 class FakeRoomRepository:
@@ -101,8 +101,31 @@ class FakeUserRepository:
         self._users: dict[str, UserRecord] = {}
         self._role_permissions: dict[str, frozenset[str]] = {}
 
-    def add(self, user: UserRecord) -> None:
+    def seed(self, user: UserRecord) -> None:
+        """Test-only convenience for pre-populating a fully-formed user -
+        not part of the real UserRepository protocol (see `add()` below
+        for that)."""
         self._users[user.id] = user
+
+    def add(
+        self,
+        *,
+        household_id: str,
+        role_id: str,
+        display_name: str,
+        password_hash: str | None = None,
+        pin_hash: str | None = None,
+    ) -> UserRecord:
+        user = UserRecord(
+            id=str(uuid.uuid4()),
+            household_id=household_id,
+            role_id=role_id,
+            display_name=display_name,
+            password_hash=password_hash,
+            pin_hash=pin_hash,
+        )
+        self._users[user.id] = user
+        return user
 
     def set_role_permissions(self, role_id: str, permissions: frozenset[str]) -> None:
         self._role_permissions[role_id] = permissions
@@ -138,6 +161,25 @@ class FakeUserRepository:
             )
 
 
+class FakeHouseholdRepository:
+    def __init__(self) -> None:
+        self._households: dict[str, HouseholdRecord] = {}
+
+    def add(self, *, name: str, product_class: str) -> HouseholdRecord:
+        household = HouseholdRecord(id=str(uuid.uuid4()), name=name, product_class=product_class)
+        self._households[household.id] = household
+        return household
+
+    def get_by_id(self, household_id: str) -> HouseholdRecord | None:
+        return self._households.get(household_id)
+
+    def all(self) -> list[HouseholdRecord]:
+        """Test-only introspection, not part of HouseholdRepository's
+        protocol - lets a test assert "no new household was created"
+        without reaching into a private attribute."""
+        return list(self._households.values())
+
+
 class FakeRoleRepository:
     def __init__(self) -> None:
         self._role_ids_by_key: dict[str, str] = {}
@@ -158,6 +200,7 @@ class FakeUnitOfWork:
         self.devices = FakeDeviceRepository()
         self.users = FakeUserRepository()
         self.roles = FakeRoleRepository()
+        self.households = FakeHouseholdRepository()
         self.committed = False
         self.rolled_back = False
 
@@ -189,6 +232,7 @@ __all__ = [
     "FakeDeviceRepository",
     "FakeUserRepository",
     "FakeRoleRepository",
+    "FakeHouseholdRepository",
     "FakeUnitOfWork",
     "InMemoryAuditRecorder",
     "make_actor",

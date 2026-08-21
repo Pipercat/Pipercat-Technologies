@@ -6,9 +6,26 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Device, Permission, Role, RolePermission, Room, User
+from app.db.models import Device, Household, Permission, Role, RolePermission, Room, User
 
-from .records import DeviceRecord, RoomRecord, UserRecord
+from .records import DeviceRecord, HouseholdRecord, RoomRecord, UserRecord
+
+
+class SqlAlchemyHouseholdRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, *, name: str, product_class: str) -> HouseholdRecord:
+        household = Household(name=name, product_class=product_class)
+        self._session.add(household)
+        self._session.flush()  # assigns household.id without committing the transaction
+        return _to_household_record(household)
+
+    def get_by_id(self, household_id: str) -> HouseholdRecord | None:
+        # Household has no SoftDeleteMixin (app/db/models.py) - unlike
+        # Room/User/Device, a household is never soft-deleted.
+        household = self._session.get(Household, uuid.UUID(household_id))
+        return _to_household_record(household) if household is not None else None
 
 
 class SqlAlchemyRoomRepository:
@@ -97,6 +114,26 @@ class SqlAlchemyUserRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    def add(
+        self,
+        *,
+        household_id: str,
+        role_id: str,
+        display_name: str,
+        password_hash: str | None = None,
+        pin_hash: str | None = None,
+    ) -> UserRecord:
+        user = User(
+            household_id=uuid.UUID(household_id),
+            role_id=uuid.UUID(role_id),
+            display_name=display_name,
+            password_hash=password_hash,
+            pin_hash=pin_hash,
+        )
+        self._session.add(user)
+        self._session.flush()
+        return _to_user_record(user)
+
     def get_by_id(self, user_id: str) -> UserRecord | None:
         user = self._session.get(User, uuid.UUID(user_id))
         if user is None or user.deleted_at is not None:
@@ -132,6 +169,10 @@ class SqlAlchemyRoleRepository:
     def get_id_by_key(self, role_key: str) -> str | None:
         role = self._session.scalars(select(Role).where(Role.key == role_key)).first()
         return str(role.id) if role else None
+
+
+def _to_household_record(household: Household) -> HouseholdRecord:
+    return HouseholdRecord(id=str(household.id), name=household.name, product_class=household.product_class)
 
 
 def _to_user_record(user: User) -> UserRecord:
