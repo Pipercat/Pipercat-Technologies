@@ -86,6 +86,34 @@ class HomeAssistantAdapter:
         result = await self._client.send_command("config/device_registry/list")
         return [{"id": row["id"], "areaId": row.get("area_id")} for row in result]
 
+    async def zha_permit_join(self, *, duration_seconds: int = 60) -> None:
+        """Starts ZHA's Zigbee pairing window (S1V2-02-021 follow-up,
+        `S1V2-02-022`: "Pairing über SystemONE anstoßen"). `zha.permit` is
+        a real, documented Home Assistant service (`domain="zha"`,
+        `service="permit"`, field `duration` - see the `zha` integration's
+        own `services.yaml` in home-assistant/core) - not a bespoke
+        SystemONE mechanism, so it needs no new low-level protocol code
+        beyond the already-existing `call_service()`."""
+        await self._client.call_service("zha", "permit", {"duration": duration_seconds})
+
+    async def zha_remove_device(self, *, ieee: str) -> None:
+        """`zha.remove` (real HA service, field `ieee` - same source as
+        `zha_permit_join()`) unpairs a Zigbee device from the coordinator."""
+        await self._client.call_service("zha", "remove", {"ieee": ieee})
+
+    async def zha_list_devices(self) -> list[dict[str, Any]]:
+        """Raw `zha/devices` WebSocket command passthrough (real HA
+        command - see the `zha` integration's `websocket_api.py::
+        websocket_get_devices`) - each returned dict is HA's own
+        `ZHADeviceInfo` shape and includes at least an `ieee` field.
+        Deliberately a raw passthrough rather than a further-normalized
+        SystemONE type: `ZHADeviceInfo`'s exact nested field layout ships
+        in the separate `zha` PyPI package, not `home-assistant/core`
+        itself, and this codebase has no real Zigbee coordinator to
+        validate a parser against yet - see
+        docs/architecture/zigbee-integration.md's "Bekannte Grenzen"."""
+        return await self._client.send_command("zha/devices")
+
     async def subscribe_events(self) -> AsyncIterator[dict[str, Any]]:
         """Yields normalized items for every live Home Assistant
         state_changed event, reconnecting transparently on connection loss

@@ -93,6 +93,31 @@ class TranslatingHomeAssistantAdapter:
             else:
                 yield {"kind": "device_changed", "device": DomainDevice(**item["device"])}
 
+    async def start_zigbee_pairing(self, *, duration_seconds: int = 60) -> None:
+        """S1V2-02-022: "Pairing über SystemONE anstoßen" - `zha.permit` is
+        a real Home Assistant service, not a SystemONE invention (see
+        `home_assistant_adapter.adapter.HomeAssistantAdapter.
+        zha_permit_join`'s docstring for the source)."""
+        try:
+            await self._adapter.zha_permit_join(duration_seconds=duration_seconds)
+        except (HomeAssistantConnectionError, HomeAssistantAuthError, HATransientDeviceError) as exc:
+            raise TransientDeviceError(str(exc)) from exc
+
+    async def remove_zigbee_device(self, *, ieee: str) -> None:
+        try:
+            await self._adapter.zha_remove_device(ieee=ieee)
+        except (HomeAssistantConnectionError, HomeAssistantAuthError, HATransientDeviceError) as exc:
+            raise TransientDeviceError(str(exc)) from exc
+
+    async def list_zigbee_gateway_devices(self) -> list[dict[str, Any]]:
+        """Raw passthrough, deliberately not coerced into a SystemONE type
+        - see `HomeAssistantAdapter.zha_list_devices()`'s docstring for
+        why this stays unprocessed pending real-hardware verification."""
+        try:
+            return await self._adapter.zha_list_devices()
+        except (HomeAssistantConnectionError, HomeAssistantAuthError, HATransientDeviceError) as exc:
+            raise TransientDeviceError(str(exc)) from exc
+
 
 def _command_to_dict(command: CapabilityCommand) -> dict[str, Any]:
     return command.model_dump(mode="json")

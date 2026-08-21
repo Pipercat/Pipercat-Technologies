@@ -22,6 +22,7 @@ class FakeHomeAssistantClient:
         self.states = states
         self.service_calls: list[tuple[str, str, dict]] = []
         self._events: list[dict] = []
+        self.zha_devices: list[dict] = []
 
     async def get_states(self) -> list[dict[str, Any]]:
         return self.states
@@ -45,6 +46,8 @@ class FakeHomeAssistantClient:
             return [{"entity_id": "light.bed_light", "area_id": None, "device_id": "device-1"}]
         if command_type == "config/device_registry/list":
             return [{"id": "device-1", "area_id": "living_room"}]
+        if command_type == "zha/devices":
+            return self.zha_devices
         raise AssertionError(f"unexpected command {command_type}")
 
     def queue_event(self, event: dict) -> None:
@@ -185,3 +188,39 @@ async def test_subscribe_events_populates_the_entity_lookup_cache():
     new_state = await adapter.apply_command(device_id, {"type": "on_off", "is_on": True})
     assert new_state == {"type": "on_off", "is_on": True}
     assert fake.service_calls == [("switch", "turn_on", {"entity_id": "switch.decorative_lights"})]
+
+
+# --- ZHA / Zigbee pairing (S1V2-02-022) -------------------------------------
+
+
+async def test_zha_permit_join_calls_the_real_zha_permit_service():
+    adapter, fake = _adapter_with_fake_client([])
+
+    await adapter.zha_permit_join(duration_seconds=120)
+
+    assert fake.service_calls == [("zha", "permit", {"duration": 120})]
+
+
+async def test_zha_permit_join_defaults_to_sixty_seconds():
+    adapter, fake = _adapter_with_fake_client([])
+
+    await adapter.zha_permit_join()
+
+    assert fake.service_calls == [("zha", "permit", {"duration": 60})]
+
+
+async def test_zha_remove_device_calls_the_real_zha_remove_service():
+    adapter, fake = _adapter_with_fake_client([])
+
+    await adapter.zha_remove_device(ieee="00:11:22:33:44:55:66:77")
+
+    assert fake.service_calls == [("zha", "remove", {"ieee": "00:11:22:33:44:55:66:77"})]
+
+
+async def test_zha_list_devices_passes_through_the_raw_zha_devices_command():
+    adapter, fake = _adapter_with_fake_client([])
+    fake.zha_devices = [{"ieee": "00:11:22:33:44:55:66:77", "entities": [{"entity_id": "light.bed_light"}]}]
+
+    devices = await adapter.zha_list_devices()
+
+    assert devices == fake.zha_devices

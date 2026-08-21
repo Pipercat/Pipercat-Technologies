@@ -33,6 +33,11 @@ class _RawHomeAssistantAdapterDouble:
         self.list_devices_result: list[dict] | Exception = []
         self.apply_command_result: dict | Exception = {}
         self.last_apply_command_args: tuple[str, dict] | None = None
+        self.zha_permit_join_result: None | Exception = None
+        self.last_zha_permit_join_duration: int | None = None
+        self.zha_remove_device_result: None | Exception = None
+        self.last_zha_remove_device_ieee: str | None = None
+        self.zha_list_devices_result: list[dict] | Exception = []
 
     async def list_devices(self) -> list[dict]:
         if isinstance(self.list_devices_result, Exception):
@@ -44,6 +49,21 @@ class _RawHomeAssistantAdapterDouble:
         if isinstance(self.apply_command_result, Exception):
             raise self.apply_command_result
         return self.apply_command_result
+
+    async def zha_permit_join(self, *, duration_seconds: int = 60) -> None:
+        self.last_zha_permit_join_duration = duration_seconds
+        if isinstance(self.zha_permit_join_result, Exception):
+            raise self.zha_permit_join_result
+
+    async def zha_remove_device(self, *, ieee: str) -> None:
+        self.last_zha_remove_device_ieee = ieee
+        if isinstance(self.zha_remove_device_result, Exception):
+            raise self.zha_remove_device_result
+
+    async def zha_list_devices(self) -> list[dict]:
+        if isinstance(self.zha_list_devices_result, Exception):
+            raise self.zha_list_devices_result
+        return self.zha_list_devices_result
 
 
 # --- error translation: list_devices ----------------------------------------
@@ -216,3 +236,61 @@ async def test_apply_command_device_id_not_in_ha_registry_is_reported_as_not_fou
 
     with pytest.raises(DeviceNotFoundError):
         await adapter.apply_command("never-listed-device", SetOnOffCommand(is_on=True))
+
+
+# --- ZHA / Zigbee pairing (S1V2-02-022) -------------------------------------
+
+
+async def test_start_zigbee_pairing_forwards_the_duration():
+    raw = _RawHomeAssistantAdapterDouble()
+    adapter = TranslatingHomeAssistantAdapter(raw)
+
+    await adapter.start_zigbee_pairing(duration_seconds=120)
+
+    assert raw.last_zha_permit_join_duration == 120
+
+
+async def test_start_zigbee_pairing_translates_connection_errors():
+    raw = _RawHomeAssistantAdapterDouble()
+    raw.zha_permit_join_result = HomeAssistantConnectionError("down")
+    adapter = TranslatingHomeAssistantAdapter(raw)
+
+    with pytest.raises(TransientDeviceError):
+        await adapter.start_zigbee_pairing()
+
+
+async def test_remove_zigbee_device_forwards_the_ieee():
+    raw = _RawHomeAssistantAdapterDouble()
+    adapter = TranslatingHomeAssistantAdapter(raw)
+
+    await adapter.remove_zigbee_device(ieee="00:11:22:33:44:55:66:77")
+
+    assert raw.last_zha_remove_device_ieee == "00:11:22:33:44:55:66:77"
+
+
+async def test_remove_zigbee_device_translates_auth_errors():
+    raw = _RawHomeAssistantAdapterDouble()
+    raw.zha_remove_device_result = HomeAssistantAuthError("bad token")
+    adapter = TranslatingHomeAssistantAdapter(raw)
+
+    with pytest.raises(TransientDeviceError):
+        await adapter.remove_zigbee_device(ieee="00:11:22:33:44:55:66:77")
+
+
+async def test_list_zigbee_gateway_devices_passes_through_raw_data():
+    raw = _RawHomeAssistantAdapterDouble()
+    raw.zha_list_devices_result = [{"ieee": "00:11:22:33:44:55:66:77"}]
+    adapter = TranslatingHomeAssistantAdapter(raw)
+
+    devices = await adapter.list_zigbee_gateway_devices()
+
+    assert devices == [{"ieee": "00:11:22:33:44:55:66:77"}]
+
+
+async def test_list_zigbee_gateway_devices_translates_transient_errors():
+    raw = _RawHomeAssistantAdapterDouble()
+    raw.zha_list_devices_result = HATransientDeviceError("timeout")
+    adapter = TranslatingHomeAssistantAdapter(raw)
+
+    with pytest.raises(TransientDeviceError):
+        await adapter.list_zigbee_gateway_devices()
