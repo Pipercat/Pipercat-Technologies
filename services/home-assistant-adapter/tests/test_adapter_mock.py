@@ -23,6 +23,8 @@ class FakeHomeAssistantClient:
         self.service_calls: list[tuple[str, str, dict]] = []
         self._events: list[dict] = []
         self.zha_devices: list[dict] = []
+        self.sent_commands: list[tuple[str, dict]] = []
+        self.matter_node_diagnostics_result: dict = {}
 
     async def get_states(self) -> list[dict[str, Any]]:
         return self.states
@@ -40,6 +42,7 @@ class FakeHomeAssistantClient:
         return []
 
     async def send_command(self, command_type: str, **extra) -> Any:
+        self.sent_commands.append((command_type, extra))
         if command_type == "config/area_registry/list":
             return [{"area_id": "living_room", "name": "Living Room"}]
         if command_type == "config/entity_registry/list":
@@ -48,6 +51,10 @@ class FakeHomeAssistantClient:
             return [{"id": "device-1", "area_id": "living_room"}]
         if command_type == "zha/devices":
             return self.zha_devices
+        if command_type in ("matter/commission", "matter/commission_on_network", "matter/remove_matter_fabric"):
+            return None
+        if command_type == "matter/node_diagnostics":
+            return self.matter_node_diagnostics_result
         raise AssertionError(f"unexpected command {command_type}")
 
     def queue_event(self, event: dict) -> None:
@@ -224,3 +231,73 @@ async def test_zha_list_devices_passes_through_the_raw_zha_devices_command():
     devices = await adapter.zha_list_devices()
 
     assert devices == fake.zha_devices
+
+
+# --- Matter commissioning (S1V2-02-023) -------------------------------------
+
+
+async def test_matter_commission_with_code_calls_the_real_matter_commission_command():
+    adapter, fake = _adapter_with_fake_client([])
+
+    await adapter.matter_commission_with_code(code="MT:ABCDEF")
+
+    assert fake.sent_commands == [("matter/commission", {"code": "MT:ABCDEF", "network_only": True})]
+
+
+async def test_matter_commission_with_code_forwards_network_only_false():
+    adapter, fake = _adapter_with_fake_client([])
+
+    await adapter.matter_commission_with_code(code="MT:ABCDEF", network_only=False)
+
+    assert fake.sent_commands == [("matter/commission", {"code": "MT:ABCDEF", "network_only": False})]
+
+
+async def test_matter_commission_on_network_calls_the_real_command():
+    adapter, fake = _adapter_with_fake_client([])
+
+    await adapter.matter_commission_on_network(pin=12345678)
+
+    assert fake.sent_commands == [("matter/commission_on_network", {"pin": 12345678})]
+
+
+async def test_matter_commission_on_network_forwards_ip_addr_when_given():
+    adapter, fake = _adapter_with_fake_client([])
+
+    await adapter.matter_commission_on_network(pin=12345678, ip_addr="192.168.1.42")
+
+    assert fake.sent_commands == [("matter/commission_on_network", {"pin": 12345678, "ip_addr": "192.168.1.42"})]
+
+
+async def test_matter_remove_fabric_calls_the_real_command():
+    adapter, fake = _adapter_with_fake_client([])
+
+    await adapter.matter_remove_fabric(ha_device_id="ha-device-1", fabric_index=1)
+
+    assert fake.sent_commands == [("matter/remove_matter_fabric", {"device_id": "ha-device-1", "fabric_index": 1})]
+
+
+async def test_matter_node_diagnostics_passes_through_raw_data():
+    adapter, fake = _adapter_with_fake_client([])
+    fake.matter_node_diagnostics_result = {"fabrics": [{"fabric_index": 1}]}
+
+    result = await adapter.matter_node_diagnostics(ha_device_id="ha-device-1")
+
+    assert result == {"fabrics": [{"fabric_index": 1}]}
+    assert fake.sent_commands == [("matter/node_diagnostics", {"device_id": "ha-device-1"})]
+
+
+async def test_resolve_ha_device_id_finds_the_device_via_entity_registry():
+    adapter, _fake = _adapter_with_fake_client([_bed_light_state()])
+    device_id = (await adapter.list_devices())[0]["id"]
+
+    ha_device_id = await adapter.resolve_ha_device_id(device_id)
+
+    assert ha_device_id == "device-1"  # from FakeHomeAssistantClient's config/entity_registry/list
+
+
+async def test_resolve_ha_device_id_returns_none_for_an_undiscovered_device():
+    adapter, _fake = _adapter_with_fake_client([_bed_light_state()])
+
+    ha_device_id = await adapter.resolve_ha_device_id("never-listed-device")
+
+    assert ha_device_id is None

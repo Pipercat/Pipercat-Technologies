@@ -38,6 +38,14 @@ class _RawHomeAssistantAdapterDouble:
         self.zha_remove_device_result: None | Exception = None
         self.last_zha_remove_device_ieee: str | None = None
         self.zha_list_devices_result: list[dict] | Exception = []
+        self.resolve_ha_device_id_result: str | None = "ha-device-1"
+        self.matter_commission_with_code_result: None | Exception = None
+        self.last_matter_commission_with_code_args: tuple[str, bool] | None = None
+        self.matter_commission_on_network_result: None | Exception = None
+        self.last_matter_commission_on_network_args: tuple[int, str | None] | None = None
+        self.matter_remove_fabric_result: None | Exception = None
+        self.last_matter_remove_fabric_args: tuple[str, int] | None = None
+        self.matter_node_diagnostics_result: dict | Exception = {}
 
     async def list_devices(self) -> list[dict]:
         if isinstance(self.list_devices_result, Exception):
@@ -64,6 +72,29 @@ class _RawHomeAssistantAdapterDouble:
         if isinstance(self.zha_list_devices_result, Exception):
             raise self.zha_list_devices_result
         return self.zha_list_devices_result
+
+    async def resolve_ha_device_id(self, device_id: str) -> str | None:
+        return self.resolve_ha_device_id_result
+
+    async def matter_commission_with_code(self, *, code: str, network_only: bool = True) -> None:
+        self.last_matter_commission_with_code_args = (code, network_only)
+        if isinstance(self.matter_commission_with_code_result, Exception):
+            raise self.matter_commission_with_code_result
+
+    async def matter_commission_on_network(self, *, pin: int, ip_addr: str | None = None) -> None:
+        self.last_matter_commission_on_network_args = (pin, ip_addr)
+        if isinstance(self.matter_commission_on_network_result, Exception):
+            raise self.matter_commission_on_network_result
+
+    async def matter_remove_fabric(self, *, ha_device_id: str, fabric_index: int) -> None:
+        self.last_matter_remove_fabric_args = (ha_device_id, fabric_index)
+        if isinstance(self.matter_remove_fabric_result, Exception):
+            raise self.matter_remove_fabric_result
+
+    async def matter_node_diagnostics(self, *, ha_device_id: str) -> dict:
+        if isinstance(self.matter_node_diagnostics_result, Exception):
+            raise self.matter_node_diagnostics_result
+        return self.matter_node_diagnostics_result
 
 
 # --- error translation: list_devices ----------------------------------------
@@ -294,3 +325,90 @@ async def test_list_zigbee_gateway_devices_translates_transient_errors():
 
     with pytest.raises(TransientDeviceError):
         await adapter.list_zigbee_gateway_devices()
+
+
+# --- Matter commissioning (S1V2-02-023) -------------------------------------
+
+
+async def test_start_matter_commissioning_with_code_forwards_the_code():
+    raw = _RawHomeAssistantAdapterDouble()
+    adapter = TranslatingHomeAssistantAdapter(raw)
+
+    await adapter.start_matter_commissioning_with_code(code="MT:ABCDEF", network_only=False)
+
+    assert raw.last_matter_commission_with_code_args == ("MT:ABCDEF", False)
+
+
+async def test_start_matter_commissioning_with_code_translates_connection_errors():
+    raw = _RawHomeAssistantAdapterDouble()
+    raw.matter_commission_with_code_result = HomeAssistantConnectionError("down")
+    adapter = TranslatingHomeAssistantAdapter(raw)
+
+    with pytest.raises(TransientDeviceError):
+        await adapter.start_matter_commissioning_with_code(code="MT:ABCDEF")
+
+
+async def test_start_matter_commissioning_on_network_forwards_the_pin():
+    raw = _RawHomeAssistantAdapterDouble()
+    adapter = TranslatingHomeAssistantAdapter(raw)
+
+    await adapter.start_matter_commissioning_on_network(pin=12345678, ip_addr="192.168.1.42")
+
+    assert raw.last_matter_commission_on_network_args == (12345678, "192.168.1.42")
+
+
+async def test_start_matter_commissioning_on_network_translates_auth_errors():
+    raw = _RawHomeAssistantAdapterDouble()
+    raw.matter_commission_on_network_result = HomeAssistantAuthError("bad token")
+    adapter = TranslatingHomeAssistantAdapter(raw)
+
+    with pytest.raises(TransientDeviceError):
+        await adapter.start_matter_commissioning_on_network(pin=12345678)
+
+
+async def test_remove_matter_device_resolves_ha_device_id_and_forwards_fabric_index():
+    raw = _RawHomeAssistantAdapterDouble()
+    raw.resolve_ha_device_id_result = "ha-device-1"
+    adapter = TranslatingHomeAssistantAdapter(raw)
+
+    await adapter.remove_matter_device(device_id="light-1", fabric_index=1)
+
+    assert raw.last_matter_remove_fabric_args == ("ha-device-1", 1)
+
+
+async def test_remove_matter_device_raises_device_not_found_when_unresolvable():
+    raw = _RawHomeAssistantAdapterDouble()
+    raw.resolve_ha_device_id_result = None
+    adapter = TranslatingHomeAssistantAdapter(raw)
+
+    with pytest.raises(DeviceNotFoundError):
+        await adapter.remove_matter_device(device_id="never-listed-device", fabric_index=1)
+
+
+async def test_remove_matter_device_translates_transient_errors():
+    raw = _RawHomeAssistantAdapterDouble()
+    raw.matter_remove_fabric_result = HATransientDeviceError("timeout")
+    adapter = TranslatingHomeAssistantAdapter(raw)
+
+    with pytest.raises(TransientDeviceError):
+        await adapter.remove_matter_device(device_id="light-1", fabric_index=1)
+
+
+async def test_get_matter_node_diagnostics_resolves_ha_device_id_and_returns_raw_data():
+    raw = _RawHomeAssistantAdapterDouble()
+    raw.resolve_ha_device_id_result = "ha-device-1"
+    raw.matter_node_diagnostics_result = {"fabrics": [{"fabric_index": 1}]}
+    adapter = TranslatingHomeAssistantAdapter(raw)
+
+    result = await adapter.get_matter_node_diagnostics(device_id="light-1")
+
+    assert result == {"fabrics": [{"fabric_index": 1}]}
+
+
+async def test_get_matter_node_diagnostics_raises_device_not_found_when_unresolvable():
+    raw = _RawHomeAssistantAdapterDouble()
+    raw.resolve_ha_device_id_result = None
+    adapter = TranslatingHomeAssistantAdapter(raw)
+
+    with pytest.raises(DeviceNotFoundError):
+        await adapter.get_matter_node_diagnostics(device_id="never-listed-device")

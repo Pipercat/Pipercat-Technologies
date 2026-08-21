@@ -118,6 +118,49 @@ class TranslatingHomeAssistantAdapter:
         except (HomeAssistantConnectionError, HomeAssistantAuthError, HATransientDeviceError) as exc:
             raise TransientDeviceError(str(exc)) from exc
 
+    async def start_matter_commissioning_with_code(self, *, code: str, network_only: bool = True) -> None:
+        """S1V2-02-023: `matter/commission` is a real Home Assistant
+        command (see `HomeAssistantAdapter.matter_commission_with_code()`'s
+        docstring for the source), not a SystemONE invention."""
+        try:
+            await self._adapter.matter_commission_with_code(code=code, network_only=network_only)
+        except (HomeAssistantConnectionError, HomeAssistantAuthError, HATransientDeviceError) as exc:
+            raise TransientDeviceError(str(exc)) from exc
+
+    async def start_matter_commissioning_on_network(self, *, pin: int, ip_addr: str | None = None) -> None:
+        try:
+            await self._adapter.matter_commission_on_network(pin=pin, ip_addr=ip_addr)
+        except (HomeAssistantConnectionError, HomeAssistantAuthError, HATransientDeviceError) as exc:
+            raise TransientDeviceError(str(exc)) from exc
+
+    async def remove_matter_device(self, *, device_id: str, fabric_index: int) -> None:
+        """`device_id` is the SystemONE device id - resolved to Home
+        Assistant's own device-registry id internally, so callers never
+        need to know that distinction exists (mirrors how
+        `remove_zigbee_device()` instead takes a caller-supplied `ieee`,
+        since Zigbee's equivalent resolution isn't safely buildable yet -
+        see docs/architecture/matter-integration.md for why Matter's case
+        is different)."""
+        try:
+            ha_device_id = await self._adapter.resolve_ha_device_id(device_id)
+            if ha_device_id is None:
+                raise DeviceNotFoundError(device_id)
+            await self._adapter.matter_remove_fabric(ha_device_id=ha_device_id, fabric_index=fabric_index)
+        except (HomeAssistantConnectionError, HomeAssistantAuthError, HATransientDeviceError) as exc:
+            raise TransientDeviceError(str(exc)) from exc
+
+    async def get_matter_node_diagnostics(self, *, device_id: str) -> dict[str, Any]:
+        """Raw passthrough (see `HomeAssistantAdapter.matter_node_diagnostics()`'s
+        docstring) - used to discover a device's current `fabric_index`
+        values before calling `remove_matter_device()`."""
+        try:
+            ha_device_id = await self._adapter.resolve_ha_device_id(device_id)
+            if ha_device_id is None:
+                raise DeviceNotFoundError(device_id)
+            return await self._adapter.matter_node_diagnostics(ha_device_id=ha_device_id)
+        except (HomeAssistantConnectionError, HomeAssistantAuthError, HATransientDeviceError) as exc:
+            raise TransientDeviceError(str(exc)) from exc
+
 
 def _command_to_dict(command: CapabilityCommand) -> dict[str, Any]:
     return command.model_dump(mode="json")

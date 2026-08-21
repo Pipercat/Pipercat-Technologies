@@ -114,6 +114,57 @@ class HomeAssistantAdapter:
         docs/architecture/zigbee-integration.md's "Bekannte Grenzen"."""
         return await self._client.send_command("zha/devices")
 
+    async def resolve_ha_device_id(self, device_id: str) -> str | None:
+        """Maps a SystemONE `device_id` to Home Assistant's own internal
+        device-registry id (S1V2-02-023) - Matter's commissioning-window/
+        remove-fabric commands identify a node by HA `device_id`, not by
+        `entity_id` (unlike Zigbee's `ieee`, see zigbee-integration.md).
+        Reuses `list_entity_registry()` (S1V2-02-017) rather than
+        introducing a second correlation mechanism - `None` if the device
+        was never discovered via `list_devices()` (no entity_id cached
+        yet) or has no HA device-registry entry."""
+        entity_id = self._entity_id_by_device_id.get(device_id)
+        if entity_id is None:
+            return None
+        for row in await self.list_entity_registry():
+            if row["entityId"] == entity_id:
+                return row["deviceId"]
+        return None
+
+    async def matter_commission_with_code(self, *, code: str, network_only: bool = True) -> None:
+        """`matter/commission` (real HA WebSocket command, fields `code`/
+        `network_only` - see the `matter` integration's `api.py::
+        websocket_commission` in home-assistant/core) - pairs a Matter
+        device via its QR/manual pairing code."""
+        await self._client.send_command("matter/commission", code=code, network_only=network_only)
+
+    async def matter_commission_on_network(self, *, pin: int, ip_addr: str | None = None) -> None:
+        """`matter/commission_on_network` (real HA command, fields `pin`/
+        optional `ip_addr` - same source) - pairs a Matter device that is
+        already reachable on the local network via its numeric PIN."""
+        extra: dict[str, Any] = {"pin": pin}
+        if ip_addr is not None:
+            extra["ip_addr"] = ip_addr
+        await self._client.send_command("matter/commission_on_network", **extra)
+
+    async def matter_remove_fabric(self, *, ha_device_id: str, fabric_index: int) -> None:
+        """`matter/remove_matter_fabric` (real HA command, fields
+        `device_id`/`fabric_index` - same source) - un-pairs a Matter
+        device from this Home Assistant instance's fabric. `ha_device_id`
+        is HA's own device-registry id (see `resolve_ha_device_id()`),
+        not a SystemONE `device_id` or `entity_id`."""
+        await self._client.send_command("matter/remove_matter_fabric", device_id=ha_device_id, fabric_index=fabric_index)
+
+    async def matter_node_diagnostics(self, *, ha_device_id: str) -> dict[str, Any]:
+        """Raw `matter/node_diagnostics` passthrough (real HA command -
+        same source) - needed to discover which `fabric_index` to pass to
+        `matter_remove_fabric()`. Deliberately unprocessed: its exact
+        nested shape comes from the separate `python-matter-server`
+        client, not `home-assistant/core` itself, and this codebase has no
+        real Matter controller to validate a parser against yet - see
+        docs/architecture/matter-integration.md's "Bekannte Grenzen"."""
+        return await self._client.send_command("matter/node_diagnostics", device_id=ha_device_id)
+
     async def subscribe_events(self) -> AsyncIterator[dict[str, Any]]:
         """Yields normalized items for every live Home Assistant
         state_changed event, reconnecting transparently on connection loss
