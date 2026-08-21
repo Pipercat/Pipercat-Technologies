@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from .correlation import CorrelationIdMiddleware, get_correlation_id
+from .device_compatibility import lookup_compatibility
 from .device_identity import ProductClassUnknownError, get_product_class
 from .domain import CapabilityNotSupportedError, DeviceNotFoundError, DeviceService, DomainDevice
 from .domain.capabilities import CapabilityCommand, CapabilityState
@@ -201,6 +202,47 @@ async def list_devices() -> Envelope[list[DomainDevice]]:
 async def send_device_command(device_id: str, command: CapabilityCommand) -> Envelope[CapabilityState]:
     new_state = await device_service.send_command(device_id, command)
     return ok(new_state)
+
+
+# --- device compatibility (S1V2-02-026) ------------------------------------
+
+
+class DeviceCompatibilityData(BaseModel):
+    manufacturer: str
+    model: str
+    integrationType: str
+    capabilities: list[str]
+    status: str
+    disclaimer: str | None
+
+
+@app.get("/api/v1/device-compatibility", response_model=Envelope[DeviceCompatibilityData])
+def device_compatibility(
+    manufacturer: str, model: str, integration_type: str = Query(alias="integrationType")
+) -> Envelope[DeviceCompatibilityData]:
+    """Read-only, no permission required - this is public product
+    information (the same for every customer), not household data. See
+    docs/architecture/device-compatibility.md for why the registry itself
+    is static/code-shipped rather than a database table."""
+    profile = lookup_compatibility(manufacturer, model, integration_type)
+    if profile is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "DEVICE_COMPATIBILITY_NOT_FOUND",
+                "message": f"No compatibility profile for {manufacturer} {model} ({integration_type}).",
+            },
+        )
+    return ok(
+        DeviceCompatibilityData(
+            manufacturer=profile.manufacturer,
+            model=profile.model,
+            integrationType=profile.integration_type,
+            capabilities=profile.capabilities,
+            status=profile.status.value,
+            disclaimer=profile.disclaimer,
+        )
+    )
 
 
 # --- events / pagination --------------------------------------------------
