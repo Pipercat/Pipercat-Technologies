@@ -16,7 +16,13 @@ from pydantic import BaseModel
 
 from .correlation import CorrelationIdMiddleware, get_correlation_id
 from .device_compatibility import lookup_compatibility
-from .device_identity import ProductClassUnknownError, get_product_class
+from .device_identity import (
+    DeviceLicenseInvalidError,
+    DeviceLicenseNotConfiguredError,
+    ProductClassUnknownError,
+    get_product_class,
+    get_verified_device_identity,
+)
 from .domain import CapabilityNotSupportedError, DeviceNotFoundError, DeviceService, DomainDevice
 from .domain.capabilities import CapabilityCommand, CapabilityState
 from .domain.simulation_adapter import SimulationDeviceAdapter
@@ -86,6 +92,21 @@ async def product_class_unknown_envelope(request: Request, exc: ProductClassUnkn
     # client-visible error.
     logger.warning("product_class_unknown")
     error = ApiError(code="PRODUCT_CLASS_UNKNOWN", message=str(exc), correlationId=get_correlation_id(request))
+    return JSONResponse(status_code=500, content=Envelope(success=False, data=None, error=error).model_dump())
+
+
+@app.exception_handler(DeviceLicenseNotConfiguredError)
+async def device_license_not_configured_envelope(request: Request, exc: DeviceLicenseNotConfiguredError) -> JSONResponse:
+    error = ApiError(code="DEVICE_LICENSE_NOT_CONFIGURED", message=str(exc), correlationId=get_correlation_id(request))
+    return JSONResponse(status_code=500, content=Envelope(success=False, data=None, error=error).model_dump())
+
+
+@app.exception_handler(DeviceLicenseInvalidError)
+async def device_license_invalid_envelope(request: Request, exc: DeviceLicenseInvalidError) -> JSONResponse:
+    # Fail closed, same reasoning as ProductClassUnknownError: an invalid
+    # signature is always a hard error, never treated as "no license".
+    logger.warning("device_license_invalid")
+    error = ApiError(code="DEVICE_LICENSE_INVALID", message=str(exc), correlationId=get_correlation_id(request))
     return JSONResponse(status_code=500, content=Envelope(success=False, data=None, error=error).model_dump())
 
 
@@ -166,6 +187,29 @@ def list_features(product_class: ProductClass = Depends(get_product_class)) -> E
     """Read-only — the product class itself is never settable through the API."""
     features = sorted(f.value for f in enabled_features(product_class))
     return ok(FeaturesData(productClass=product_class.value, features=features))
+
+
+class DeviceIdentityData(BaseModel):
+    deviceId: str
+    serialNumber: str
+    productClass: str
+    issuedAt: str
+
+
+@app.get("/api/v1/device/identity", response_model=Envelope[DeviceIdentityData])
+def device_identity() -> Envelope[DeviceIdentityData]:
+    """Verifies the signed device license offline (S1V2-02-027) and
+    returns the identity it vouches for. No network call, no HQ
+    dependency (docs/product-manifest.md §2)."""
+    identity = get_verified_device_identity()
+    return ok(
+        DeviceIdentityData(
+            deviceId=identity.device_id,
+            serialNumber=identity.serial_number,
+            productClass=identity.product_class.value,
+            issuedAt=identity.issued_at.isoformat(),
+        )
+    )
 
 
 @app.get(
