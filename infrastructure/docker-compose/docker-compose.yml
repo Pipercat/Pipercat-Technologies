@@ -23,6 +23,19 @@ services:
       - postgres
       - mosquitto
       - home-assistant
+    # S1V2-02-029: app/services/network_setup.py drives the *host's* own
+    # NetworkManager via `nmcli` to configure Ethernet/Wi-Fi/the setup
+    # hotspot - a plain container has no access to that at all. Bind-
+    # mounting the host's D-Bus socket (not `network_mode: host` or
+    # `privileged: true` - the narrowest grant that makes `nmcli` work,
+    # since NetworkManager's control API is a D-Bus service, not a
+    # network-namespace concept) plus the connection-profile directory
+    # `nmcli`/network_setup.py writes `.nmconnection` keyfiles into.
+    # See docs/architecture/network-setup.md for why, and for what this
+    # cannot verify without a real Linux host running NetworkManager.
+    volumes:
+      - /var/run/dbus:/var/run/dbus
+      - /etc/NetworkManager/system-connections:/etc/NetworkManager/system-connections
 
   # S1V2-02-021: Home Assistant is SystemONE's internal smart-home backbone
   # (ADR-0002), never a service the end customer interacts with directly.
