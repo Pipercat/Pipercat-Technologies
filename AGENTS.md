@@ -1,0 +1,127 @@
+# AGENTS.md — Verbindliche Arbeitsanweisung für jede KI/Contributor
+
+> Erledigt Notion-Aufgabe `S1V2-00-001 · KI-Arbeitsanweisung und Projektregeln verbindlich machen`
+> (Quellen: DEC-2, DEC-4, DEC-7, DEC-17, DEC-37, DEC-38, DEC-196–205 im Notion-Entscheidungslog).
+
+Dieses Dokument ist die verbindliche Betriebsanleitung für jede KI (und jeden menschlichen Contributor), die am Pipercat-Technologies-/SystemONE-Repository arbeitet. Es muss vor jeder inhaltlichen Arbeit gelesen und befolgt werden.
+
+## 1. Fachliche Quelle
+
+- Der aktive Entwicklungsplan ist die Notion-Datenbank **Aufgaben**, Ansicht **„Aktueller Entwicklungsplan“**, gefiltert auf `Plan-Generation = 2026-08 Neuaufbau`. Aufgaben-IDs im neuen Plan tragen das Präfix `S1V2-`.
+- Ältere `S1-*`- und `BUILD-*`-Aufgaben (`Plan-Generation = Altbestand`) sind **kein** aktiver Plan mehr — nur Referenz/Historie.
+- Fachliche Priorität bei Widersprüchen:
+  1. neuere eindeutige Entscheidung im **Entscheidungslog**,
+  2. aktueller Stand der Seite **„06 · Gründer-, Rechts- & Compliance-Fragen“**,
+  3. aktive `S1V2-*`-Aufgabe,
+  4. bestehender Repository-Code,
+  5. ältere/archivierte Dokumentation (inkl. ADR-0001 und `ROADMAP.md`, soweit sie dem neueren Stack widersprechen).
+- Bei einem echten, nicht auflösbaren Widerspruch zwischen zwei verbindlichen Quellen: nicht raten, keine Produktentscheidung erfinden. Blocker in der betroffenen Notion-Aufgabe dokumentieren und eine konkrete Rückfrage stellen. Status dabei auf `In progress` lassen, nicht auf `Done`.
+
+## 2. Arbeitsweise
+
+1. Aufgaben ausschließlich in aufsteigender `Reihenfolge` bearbeiten. Spätere Aufgaben nur vorziehen, wenn ihre Seite dies ausdrücklich erlaubt.
+2. Vor Beginn: Voraussetzungen (`Abhängigkeiten`) und Definition of Done prüfen. Nicht erfüllte Voraussetzungen = stoppen, Blocker dokumentieren, Status nicht auf `Done` setzen.
+3. Bestehenden funktionierenden Code zuerst verstehen und wiederverwenden. Keine unnötigen Rewrites, Frameworkwechsel oder Architekturänderungen ohne dokumentierte Notwendigkeit.
+4. Nichts löschen, nur weil es nicht (mehr) zur Zielarchitektur passt — veraltete Bereiche markieren, nicht kommentarlos entfernen.
+5. Bei jeder außerhalb des Aufgaben-Scopes gefundenen Auffälligkeit: dokumentieren; nur beheben, wenn die Behebung klein, risikoarm und für die aktuelle Aufgabe notwendig ist; sonst als Folgearbeit vermerken. Keine unkontrollierte Scope-Ausweitung.
+
+## 3. Verbindlicher technischer Stack (DEC-4)
+
+- **Clients:** Flutter.
+- **Backend/API:** FastAPI.
+- **Datenbank:** PostgreSQL.
+- **Geräte-/Server-Betriebssystem:** Debian.
+- **Container-Basis:** Docker Compose.
+- **Geräte-/Smart-Home-Events:** MQTT.
+- Redis, Celery, NATS oder vergleichbare zusätzliche Infrastruktur nur nach neu dokumentiertem, nachgewiesenem Bedarf.
+- **Home Assistant** ist eine für den Endkunden vollständig **versteckte Pflicht-Integrationsschicht** unterhalb von Device Model/Capability Layer/Registry (`HomeAssistantAdapter → Home Assistant → Hue/Zigbee/Matter/Shelly`), nicht optional wie in ADR-0001 beschrieben.
+- Pi/Mini bleiben bewusst schlank; Server/Rack dürfen zusätzliche Isolation, Container oder VMs nutzen, ohne den gemeinsamen SystemONE-Stack zu verändern.
+
+**Wichtiger Hinweis für jede KI:** Der aktuelle Repository-Code unter `mvp/systemone-pi/` (Branch `mvp/systemone-pi-v0.1`) ist ein vollständig eigenständiger **Node.js-Monolith ohne Datenbank, ohne MQTT, ohne Home-Assistant-Integration und ohne Flutter-Client**, entstanden unter der mittlerweile überholten `ADR-0001`. Er ist funktionierender, getesteter Code (295/295 Selftests) und darf nicht gelöscht oder ignoriert werden — er ist aber **nicht** der Zielstack aus DEC-4. Details und empfohlener Umgang: siehe [`docs/current-state.md`](docs/current-state.md).
+
+## 4. Local-first
+
+SystemONE ist local-first. Ein Kundensystem darf für seine Kernfunktionen nicht von SystemONE HQ, Cloud-Backup oder dauerhaftem Pipercat-Zugriff abhängig sein. SystemONE HQ ist die zentrale interne Firmenplattform von Pipercat Technologies, Kundensysteme bleiben technisch eigenständig.
+
+## 5. Sicherheit
+
+- Niemals Secrets in Git, Logs, Tickets oder allgemeiner Doku.
+- Keine echten Kundendaten in Tests.
+- Keine Umgehung von Berechtigungen; keine Deaktivierung von Sicherheitsprüfungen nur für einen erfolgreichen Test.
+- Sicherheitskritische Funktionen benötigen Negativtests: unberechtigter Zugriff, falsche Rolle, manipulierte Eingaben, abgelaufene Sessions, fehlerhafte Signaturen, Replay-/Wiederverwendungsversuche, Fehler-/Recovery-Pfade.
+
+## 6. Testpflicht
+
+- Jede Code-Aufgabe benötigt passende Tests (Unit-, Integrations- und ggf. End-to-End-Tests sowie Fehler-/Berechtigungspfade).
+- Kein `Done` bei fehlschlagenden Tests, bekannten Fehlern oder TODO-Platzhaltern für Pflichtfunktionen.
+- „Code kompiliert“ bedeutet nicht automatisch `Done`.
+
+## 6a. Notion-Statuspflege
+
+Beim **Start** einer Aufgabe sofort `Status` auf `In progress` setzen (plus `Bearbeitet von`/`Bearbeitet am`) — nicht erst am Ende. Erst nach vollständigem Abschluss (Definition of Done erfüllt, siehe Abschnitt 8) auf `Done` setzen. So bleibt in Notion jederzeit sichtbar, woran gerade gearbeitet wird, auch wenn eine Aufgabe mehrere Arbeitsschritte/Turns braucht.
+
+## 7. Dokumentationspflicht pro Aufgabe
+
+Bei jeder bearbeiteten Notion-Aufgabe zwingend ergänzen: `Ergebnis`, `Geänderte Dateien`, `Architekturentscheidungen` (nur technische Detailentscheidungen innerhalb der bereits beschlossenen Architektur), `Migrationen`, `Tests`, `Sicherheitsprüfung`, `Bekannte Grenzen/offene Punkte`, `Rollback`, `Git` (Branch/Commit/PR) und eine kurze **Übergabe an nächste KI/Entwickler** (3–10 Sätze: Stand, nächste Schritte, Stolperfallen).
+
+## 8. Statusregeln
+
+- Nur auf `Done` setzen, wenn die Definition of Done tatsächlich erfüllt ist (Code baut/kompiliert, Tests grün, keine fehlenden Pflichtfunktionen, keine provisorischen TODOs für Pflichtfunktionen, Fehlerpfade und Security berücksichtigt, Dokumentation aktualisiert, Notion-Übergabe geschrieben).
+- Bei Blockade: Status nicht auf `Done`, Blocker dokumentieren, keine erfundene Lösung einbauen.
+- Keine Aufgabe darf eine spätere fachliche Entscheidung vorwegnehmen oder eine menschliche Gate-Aufgabe eigenmächtig als erfüllt markieren.
+
+## 9. Git
+
+- Kleine, logisch zusammenhängende Änderungen; verständliche Commit-Nachrichten; keine riesigen Misch-Commits.
+- Keine generierten Dateien oder Secrets committen.
+- Vor Commit Tests ausführen (`npm run verify` in `mvp/systemone-pi/`, siehe [`docs/current-state.md`](docs/current-state.md) für die aktuelle Baseline), Diff vor Abschluss selbst prüfen.
+- Bestehenden funktionierenden Code nicht ohne nachvollziehbaren Grund überschreiben oder löschen. Keine destruktiven Git-Kommandos, die bestehende Arbeit verlieren könnten.
+- Commits/Pushes nur nach expliziter Freigabe der verantwortlichen Person, sofern nicht anders angewiesen.
+
+## 10. Kontinuierliche Übergabefähigkeit
+
+Nach jeder Arbeitseinheit gilt die Testfrage: „Wenn ich jetzt sofort verschwinde: Kann eine andere KI oder ein Entwickler allein anhand von Git + Notion exakt verstehen, was getan wurde und wie es weitergeht?“ Wenn nein, ist die Dokumentation noch nicht ausreichend. Alles dauerhaft Relevante gehört ins Repository (Code, Tests, Doku) oder die passende Notion-Aufgabe — nicht nur in einen Gesprächskontext.
+
+## Verweise
+
+- [`docs/current-state.md`](docs/current-state.md) — Repository-Bestandsaufnahme (Notion-Aufgabe `S1V2-00-002`)
+- [`docs/product-manifest.md`](docs/product-manifest.md) — verbindliches Projektmanifest (Notion-Aufgabe `S1V2-00-003`)
+- [`docs/development-workflow.md`](docs/development-workflow.md) — Branch-/PR-Workflow, Lint/Test/Build-Kommandos, CI-Baseline (Notion-Aufgabe `S1V2-00-004`)
+- [`docs/architecture/repo-structure.md`](docs/architecture/repo-structure.md) — Verzeichnisstruktur `apps/`/`services/`/`packages/`/`infrastructure/`, Importgrenzen (Notion-Aufgabe `S1V2-01-002`)
+- [`docs/architecture/product-classes.md`](docs/architecture/product-classes.md) — Produktklassen-/Feature-Flag-Matrix Pi/Mini/Server/Rack (Notion-Aufgabe `S1V2-01-003`)
+- [`docs/architecture/api-contract.md`](docs/architecture/api-contract.md) — API-v1-Envelope, Fehlerformat, Events, Pagination, Idempotency, Concurrency, Versionierung (Notion-Aufgabe `S1V2-01-004`)
+- [`docs/architecture/observability.md`](docs/architecture/observability.md) — Health/Ready/Live, strukturierte Logs, Secret-Redaction, Metriken (Notion-Aufgabe `S1V2-01-005`) — **damit ist Phase „01 Fundament“ vollständig Done**
+- [`docs/architecture/data-model.md`](docs/architecture/data-model.md) — PostgreSQL-Schema, Alembic-Migrationsstrategie, inkl. Sandbox-Hinweis zu Python 3.14 (Notion-Aufgabe `S1V2-02-001`)
+- [`docs/architecture/domain-device-model.md`](docs/architecture/domain-device-model.md) — Device Model, Capability-Typen, `DeviceAdapterPort`, Simulationsadapter (Notion-Aufgabe `S1V2-02-002`)
+- [`docs/architecture/service-repository-layer.md`](docs/architecture/service-repository-layer.md) — Repository-Interfaces, `UnitOfWork`, Autorisierung an Use-Case-Grenzen, Audit-Hook, Idempotenz-Muster (Notion-Aufgabe `S1V2-02-003`)
+- [`docs/architecture/mqtt-eventbus.md`](docs/architecture/mqtt-eventbus.md) — Topic-Konvention, QoS/Retain, Reconnect/Duplicate-Delivery/Offline, `MqttEventBus` (Notion-Aufgabe `S1V2-02-004`)
+- [`docs/architecture/automation-engine.md`](docs/architecture/automation-engine.md) — Trigger/Bedingungen/Aktionen, Capability-Validierung, Retry-Regeln, Ausführungshistorie (Notion-Aufgabe `S1V2-02-005`)
+- [`docs/architecture/self-healing-service.md`](docs/architecture/self-healing-service.md) — Severity, Allowlist sicherer Aktionen, Audit, Wiederholungsalarm (Notion-Aufgabe `S1V2-02-006`)
+- [`docs/architecture/emergency-mode.md`](docs/architecture/emergency-mode.md) — Notfallmodus-Zustände, manueller/automatischer Eintritt, Neustart-Sicherheit, Freigabepflicht (Notion-Aufgabe `S1V2-02-007`)
+- [`docs/architecture/auth.md`](docs/architecture/auth.md) — Argon2id-Hashing, Sessions/Rotation/Widerruf, Rate-Limit, CSRF, kein Kunden-Root (Notion-Aufgabe `S1V2-02-008`)
+- [`docs/architecture/role-management.md`](docs/architecture/role-management.md) — Rollenkatalog, geschützte Rollen, Eskalationsschutz (Notion-Aufgabe `S1V2-02-009`)
+- [`docs/architecture/admin-area-lock.md`](docs/architecture/admin-area-lock.md) — Admin-Bereich-Zweitfreischaltung, Zeitablauf/Hintergrundsperre, Schutz vor manipulierten Clients (Notion-Aufgabe `S1V2-02-010`)
+- [`docs/architecture/household-pin.md`](docs/architecture/household-pin.md) — Haushalts-PIN, Sperrstaffel, Admin-Reset an frische Adminauthentifizierung gekoppelt (Notion-Aufgabe `S1V2-02-011`)
+- [`docs/architecture/protected-actions.md`](docs/architecture/protected-actions.md) — Neue Freigabe pro geschützter Aktion (keine PIN-Freischaltsession), Biometrie als Eingabe-Ersatz, Admin-Opt-in pro Nutzer (Notion-Aufgabe `S1V2-02-012`)
+- [`docs/architecture/secrets-management.md`](docs/architecture/secrets-management.md) — Verschlüsselte Integrations-Secrets, Rotation/Widerruf, Diagnose-Redaction, Repository-Secret-Scan (Notion-Aufgabe `S1V2-02-013`)
+- [`docs/architecture/audit-log.md`](docs/architecture/audit-log.md) — Hash-Chain-Manipulationsnachweis für Audit-Events, Meta-Audit der Logeinsicht (Notion-Aufgabe `S1V2-02-014`)
+- [`docs/architecture/security-testharness.md`](docs/architecture/security-testharness.md) — `security`-Pytest-Marker, eigener CI-Schritt, Actor.household_id/require_same_household() als Datenisolations-Fix (Notion-Aufgabe `S1V2-02-015`)
+- [`docs/architecture/home-assistant-adapter.md`](docs/architecture/home-assistant-adapter.md) — Echter HomeAssistantAdapter (REST+WebSocket, Auth/Reconnect/Timeout), erfüllt DeviceAdapterPort strukturell, Mock- und echter HA-Integrationstest (Notion-Aufgabe `S1V2-02-016`)
+- [`docs/architecture/ha-import.md`](docs/architecture/ha-import.md) — Stabiler, idempotenter Import von HA-Areas/-Entities zu Room/Device, Area-Zuordnung über Entity-/Device-Registry (Notion-Aufgabe `S1V2-02-017`)
+- [`docs/architecture/capability-mapping.md`](docs/architecture/capability-mapping.md) — Neue Capability-Typen Lock/Climate/Camera-Stream, `compatibility`-Markierung statt Raten, Vokabular-Isolation (Notion-Aufgabe `S1V2-02-018`)
+- [`docs/architecture/device-commands.md`](docs/architecture/device-commands.md) — Dreistufige Prüfung (Permission/PIN/Capability) vor jedem Gerätebefehl, `TranslatingHomeAssistantAdapter` als Fehlerübersetzungsgrenze, Whitelist-Beweis gegen manipulierte Service-/Entityangaben, iCloud-`.pth`-Einschränkung dieser Sandbox (Notion-Aufgabe `S1V2-02-019`)
+- [`docs/architecture/ha-event-sync.md`](docs/architecture/ha-event-sync.md) — Resync-Signal bei jeder (Wieder-)Verbindung vereint initialen Snapshot und Reconnect-Recovery, Diff gegen zuletzt bekannten Zustand statt Persistenzreparatur, Bugfix für einen bisher generatorbeendenden Subscribe-Fehler (Notion-Aufgabe `S1V2-02-020`)
+- [`docs/architecture/ha-lifecycle.md`](docs/architecture/ha-lifecycle.md) — Kein Host-Port für den HA-Container, `HomeAssistantSupervisor` (Start/Stop/Health-Check über `docker compose`), `SecretStore` → echter `HomeAssistantAdapter`-Provisioning, Diagnose intern statt kundenseitig (Notion-Aufgabe `S1V2-02-021`)
+- [`docs/architecture/zigbee-integration.md`](docs/architecture/zigbee-integration.md) — `zha.permit`/`zha.remove` als reale HA-Services (gegen home-assistant/core-Quellcode verifiziert), `ZigbeePairingService`, kein SystemONE-seitiger USB-Scan (Notion-Aufgabe `S1V2-02-022` — **Software-Anteil erledigt, Hardware-Nachweis offen**)
+- [`docs/architecture/matter-integration.md`](docs/architecture/matter-integration.md) — `matter/commission`/`matter/commission_on_network`/`matter/remove_matter_fabric` als reale HA-WebSocket-Befehle, `resolve_ha_device_id()` über die bestehende Entity-Registry, `MatterCommissioningService` (Notion-Aufgabe `S1V2-02-023` — **Software-Anteil erledigt, Hardware-Nachweis offen**)
+- [`docs/architecture/shelly-integration.md`](docs/architecture/shelly-integration.md) — reine Hardware-Verifikationsaufgabe, kein neuer Code nötig: Shelly durchläuft bereits die bestehende switch/light/cover/sensor-Pipeline (Notion-Aufgabe `S1V2-02-024` — **Hardware-Nachweis offen**)
+- [`docs/architecture/device-compatibility.md`](docs/architecture/device-compatibility.md) — Certified/Compatible/Beta als statisches, code-verwaltetes Register (kein Endnutzer-Codepfad), Certified strukturell an eine vollständig bestandene Testmatrix gebunden, `GET /api/v1/device-compatibility` (Notion-Aufgabe `S1V2-02-026`)
+- [`docs/architecture/device-identity.md`](docs/architecture/device-identity.md) — Ed25519-signierte, offline verifizierbare Geräteidentität, private Schlüssel strukturell nie im Kundenimage (Dockerfile-Build-Kontext-Grenze), einmaliger/rotierbarer Setup-Secret gegen Geräteübernahme per kopiertem QR-Code (Notion-Aufgabe `S1V2-02-027`)
+- [`docs/architecture/device-pairing.md`](docs/architecture/device-pairing.md) — QR-Erstkopplung (Identität → Secret → Transaktion), Rollenkatalog-Migration behebt eine bisher unentdeckte Lücke (nie gesäte `roles`/`permissions`-Tabellen), neue `HouseholdRepository` (Notion-Aufgabe `S1V2-02-028`)
+- [`docs/architecture/network-setup.md`](docs/architecture/network-setup.md) — Ethernet-first/WLAN-Fallback über `nmcli`/NetworkManager, schmalstmöglicher Container-Zugriff (D-Bus-Socket statt `privileged`/Host-Netzwerk), WLAN-Secrets als `0600`-Schlüsseldatei statt Kommandozeilenargument (Notion-Aufgabe `S1V2-02-029` — **Software-Anteil erledigt, Host-Nachweis offen**)
+- [`docs/architecture/setup-wizard.md`](docs/architecture/setup-wizard.md) — Standort/Zeitzone/Räume nach der Kopplung aus `S1V2-02-028`, Standort auf 2 Nachkommastellen gerundet, `add_rooms()` wiederholungssicher, `get_progress()` liefert echten Zustand statt geratener Booleans (Notion-Aufgabe `S1V2-02-030`)
+- [`docs/architecture/device-onboarding-wizard.md`](docs/architecture/device-onboarding-wizard.md) — einheitlicher Discovery-Schritt für Zigbee/Matter über ein gemeinsames `DevicePairingPort`-Protocol, Kompatibilitätsprüfung über `S1V2-02-026`, Hue bewusst nicht versucht (HAs `config_flow`-Tastendruck-Mechanismus ist ein eigenständiges, größeres Vorhaben) (Notion-Aufgabe `S1V2-02-031` — **Hue-Anteil offen**)
+- [`docs/architecture/adr-0002-home-assistant-backbone.md`](docs/architecture/adr-0002-home-assistant-backbone.md) — **verbindliche Zielarchitektur** (Notion-Aufgabe `S1V2-01-001`)
+- [`docs/architecture/adr-0001-systemone-pi-pilot.md`](docs/architecture/adr-0001-systemone-pi-pilot.md) — historische Pilotarchitektur, teilweise ersetzt durch ADR-0002
+- [`docs/architecture/overview.md`](docs/architecture/overview.md) — Kurzüberblick, verweist auf ADR-0002
+- Notion: Aufgaben-Datenbank, Entscheidungslog, „06 · Gründer-, Rechts- & Compliance-Fragen“

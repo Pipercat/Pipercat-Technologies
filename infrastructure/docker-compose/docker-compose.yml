@@ -1,0 +1,74 @@
+# SystemONE local Docker Compose baseline (DEC-4: Debian + Docker Compose).
+# Pi/Mini run a slim subset of this; Server/Rack may add isolation without
+# changing the shared stack (see ADR-0002).
+#
+# Status: skeleton from S1V2-01-002. Only wires up what already exists
+# (customer-backend health endpoint + its future PostgreSQL/MQTT
+# dependencies). HQ services are intentionally not in this customer-system
+# compose file — HQ has its own deployment, kept separate per the
+# local-first / no-runtime-HQ-dependency rule (product-manifest.md, §2).
+
+services:
+  customer-backend:
+    build:
+      context: ../../apps/customer-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://systemone:systemone@postgres:5432/systemone
+      - MQTT_BROKER_URL=mqtt://mosquitto:1883
+      - SYSTEMONE_PRODUCT_CLASS=pi
+      - HOME_ASSISTANT_URL=http://home-assistant:8123
+    depends_on:
+      - postgres
+      - mosquitto
+      - home-assistant
+    # S1V2-02-029: app/services/network_setup.py drives the *host's* own
+    # NetworkManager via `nmcli` to configure Ethernet/Wi-Fi/the setup
+    # hotspot - a plain container has no access to that at all. Bind-
+    # mounting the host's D-Bus socket (not `network_mode: host` or
+    # `privileged: true` - the narrowest grant that makes `nmcli` work,
+    # since NetworkManager's control API is a D-Bus service, not a
+    # network-namespace concept) plus the connection-profile directory
+    # `nmcli`/network_setup.py writes `.nmconnection` keyfiles into.
+    # See docs/architecture/network-setup.md for why, and for what this
+    # cannot verify without a real Linux host running NetworkManager.
+    volumes:
+      - /var/run/dbus:/var/run/dbus
+      - /etc/NetworkManager/system-connections:/etc/NetworkManager/system-connections
+
+  # S1V2-02-021: Home Assistant is SystemONE's internal smart-home backbone
+  # (ADR-0002), never a service the end customer interacts with directly.
+  # No `ports:` mapping on purpose - unlike postgres/mosquitto above, this
+  # container is reachable only from other containers on the compose
+  # network (as `home-assistant:8123`), never from the host, so there is
+  # no raw Home Assistant URL a customer could open even by guessing one.
+  # customer-backend's own HomeAssistantSupervisor (app/services/
+  # ha_supervisor.py) starts/stops/health-checks this container - it is
+  # deliberately not given a `restart:` policy here, since SystemONE
+  # itself, not Docker, decides when this service should be running.
+  # `ha-config` is a persistent volume so container restarts/rebuilds
+  # (including future SystemONE-controlled HA updates) never lose the
+  # onboarded HA instance's state.
+  home-assistant:
+    image: homeassistant/home-assistant:stable
+    volumes:
+      - ha-config:/config
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=systemone
+      - POSTGRES_PASSWORD=systemone
+      - POSTGRES_DB=systemone
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+
+volumes:
+  postgres-data:
+  ha-config:

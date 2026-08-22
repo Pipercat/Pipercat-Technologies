@@ -1,0 +1,26 @@
+# Python (apps/customer-backend, apps/hq-backend, services/home-assistant-adapter)
+.venv/
+.venv*/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Flutter/Dart (apps/customer-app)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+**/ios/Pods/
+**/android/.gradle/
+
+# Node (root-level tooling, if any is added outside mvp/systemone-pi)
+node_modules/
+
+# Secrets / local env
+.env
+*.env
+!*.env.example
+
+# OS/editor noise
+.DS_Store

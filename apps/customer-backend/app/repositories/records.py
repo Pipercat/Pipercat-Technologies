@@ -1,0 +1,51 @@
+"""Repository-layer DTOs (S1V2-02-003).
+
+Deliberately separate from app/domain/device.py::DomainDevice: these
+represent a *persisted registration row*, not a live adapter-reported
+device state. Keeps the service/repository layer decoupled from both
+SQLAlchemy models and the domain/adapter layer.
+"""
+
+from dataclasses import dataclass
+from datetime import datetime
+
+
+@dataclass(frozen=True)
+class RoomRecord:
+    id: str
+    household_id: str
+    name: str
+    integration_id: str | None = None
+    external_id: str | None = None
+
+
+@dataclass(frozen=True)
+class DeviceRecord:
+    id: str
+    household_id: str
+    integration_id: str
+    external_id: str
+    name: str
+    device_type: str
+    room_id: str | None = None
+
+
+@dataclass(frozen=True)
+class HouseholdRecord:
+    id: str
+    name: str
+    product_class: str
+    timezone: str = "Europe/Berlin"
+    latitude: float | None = None
+    longitude: float | None = None
+    setup_completed_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class UserRecord:
+    id: str
+    household_id: str
+    role_id: str
+    display_name: str
+    password_hash: str | None
+    pin_hash: str | None

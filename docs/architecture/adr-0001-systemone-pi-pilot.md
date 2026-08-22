@@ -1,8 +1,10 @@
 # ADR-0001: SystemONE-Pi-Pilotarchitektur
 
-- Status: angenommen
+- Status: **teilweise ersetzt durch [ADR-0002](adr-0002-home-assistant-backbone.md) (17. August 2026)**
 - Datum: 13. August 2026
 - Geltungsbereich: geschlossener SystemONE-Pi-Pilot und Branch `mvp/systemone-pi-v0.1`
+
+> **Hinweis (17.08.2026):** Die Rolle von Home Assistant, FastAPI, PostgreSQL und Flutter (Abschnitte „Rolle von Home Assistant“ und „Rolle von FastAPI, PostgreSQL und Flutter“ unten) ist durch [ADR-0002](adr-0002-home-assistant-backbone.md) ersetzt — Home Assistant ist jetzt eine verbindliche Pflichtschicht, Flutter/FastAPI/PostgreSQL/MQTT sind der verbindliche Zielstack (siehe `DEC-4`). Dieses Dokument bleibt als historische Begründung für den bestehenden, weiterhin funktionierenden Node.js-Code unter `mvp/systemone-pi/` erhalten (siehe [`../current-state.md`](../current-state.md)) und wird nicht gelöscht.
 
 ## Kontext
 
