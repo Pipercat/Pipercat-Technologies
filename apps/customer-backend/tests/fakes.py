@@ -4,6 +4,7 @@ No database, no SQLAlchemy import anywhere in this file.
 """
 
 import uuid
+from datetime import UTC, datetime
 
 from app.audit import InMemoryAuditRecorder
 from app.repositories.records import DeviceRecord, HouseholdRecord, RoomRecord, UserRecord
@@ -172,6 +173,34 @@ class FakeHouseholdRepository:
 
     def get_by_id(self, household_id: str) -> HouseholdRecord | None:
         return self._households.get(household_id)
+
+    def set_timezone_and_location(
+        self, household_id: str, *, timezone: str, latitude: float | None, longitude: float | None
+    ) -> None:
+        existing = self._households.get(household_id)
+        if existing is not None:
+            self._households[household_id] = HouseholdRecord(
+                id=existing.id,
+                name=existing.name,
+                product_class=existing.product_class,
+                timezone=timezone,
+                latitude=latitude,
+                longitude=longitude,
+                setup_completed_at=existing.setup_completed_at,
+            )
+
+    def mark_setup_completed(self, household_id: str) -> None:
+        existing = self._households.get(household_id)
+        if existing is not None and existing.setup_completed_at is None:
+            self._households[household_id] = HouseholdRecord(
+                id=existing.id,
+                name=existing.name,
+                product_class=existing.product_class,
+                timezone=existing.timezone,
+                latitude=existing.latitude,
+                longitude=existing.longitude,
+                setup_completed_at=datetime.now(UTC),
+            )
 
     def all(self) -> list[HouseholdRecord]:
         """Test-only introspection, not part of HouseholdRepository's

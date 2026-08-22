@@ -2,6 +2,7 @@
 Satisfy app.repositories.protocols structurally - no inheritance needed."""
 
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -26,6 +27,22 @@ class SqlAlchemyHouseholdRepository:
         # Room/User/Device, a household is never soft-deleted.
         household = self._session.get(Household, uuid.UUID(household_id))
         return _to_household_record(household) if household is not None else None
+
+    def set_timezone_and_location(
+        self, household_id: str, *, timezone: str, latitude: float | None, longitude: float | None
+    ) -> None:
+        household = self._session.get(Household, uuid.UUID(household_id))
+        if household is not None:
+            household.timezone = timezone
+            household.latitude = latitude
+            household.longitude = longitude
+            self._session.flush()
+
+    def mark_setup_completed(self, household_id: str) -> None:
+        household = self._session.get(Household, uuid.UUID(household_id))
+        if household is not None and household.setup_completed_at is None:
+            household.setup_completed_at = datetime.now(UTC)
+            self._session.flush()
 
 
 class SqlAlchemyRoomRepository:
@@ -172,7 +189,15 @@ class SqlAlchemyRoleRepository:
 
 
 def _to_household_record(household: Household) -> HouseholdRecord:
-    return HouseholdRecord(id=str(household.id), name=household.name, product_class=household.product_class)
+    return HouseholdRecord(
+        id=str(household.id),
+        name=household.name,
+        product_class=household.product_class,
+        timezone=household.timezone,
+        latitude=household.latitude,
+        longitude=household.longitude,
+        setup_completed_at=household.setup_completed_at,
+    )
 
 
 def _to_user_record(user: User) -> UserRecord:

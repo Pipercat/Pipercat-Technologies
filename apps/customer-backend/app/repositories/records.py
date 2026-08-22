@@ -7,6 +7,7 @@ SQLAlchemy models and the domain/adapter layer.
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,10 @@ class HouseholdRecord:
     id: str
     name: str
     product_class: str
+    timezone: str = "Europe/Berlin"
+    latitude: float | None = None
+    longitude: float | None = None
+    setup_completed_at: datetime | None = None
 
 
 @dataclass(frozen=True)

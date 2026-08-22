@@ -13,6 +13,16 @@ class HouseholdRepository(Protocol):
 
     def get_by_id(self, household_id: str) -> HouseholdRecord | None: ...
 
+    def set_timezone_and_location(
+        self, household_id: str, *, timezone: str, latitude: float | None, longitude: float | None
+    ) -> None: ...
+
+    def mark_setup_completed(self, household_id: str) -> None:
+        """Idempotent - calling this again on an already-completed
+        household is a no-op, never an error (S1V2-02-030: a resumed
+        wizard may re-submit its final step)."""
+        ...
+
 
 class RoomRepository(Protocol):
     def add(

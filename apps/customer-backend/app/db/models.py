@@ -38,6 +38,11 @@ class Household(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     timezone: Mapped[str] = mapped_column(String(64), default="Europe/Berlin")
     latitude: Mapped[float | None] = mapped_column(default=None)
     longitude: Mapped[float | None] = mapped_column(default=None)
+    # S1V2-02-030: NULL until the first-setup wizard's final step marks it
+    # done - "kein halb autorisiertes System erzeugen" needs a real,
+    # queryable answer to "did this household ever finish setup", not an
+    # inference from other fields being non-default.
+    setup_completed_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), default=None)
 
     __table_args__ = (
         CheckConstraint(
