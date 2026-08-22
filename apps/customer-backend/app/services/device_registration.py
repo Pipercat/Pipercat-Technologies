@@ -65,3 +65,27 @@ class DeviceRegistrationService:
             outcome="success",
         )
         return device
+
+    def assign_room_and_name(
+        self, actor: Actor, *, household_id: str, device_id: str, room_id: str | None, name: str
+    ) -> None:
+        """S1V2-02-031: "Raum und verständlichen Namen setzen" - the
+        device-onboarding wizard's final step before a device is fully
+        usable. Updates the existing persisted `Device` row in place,
+        same as S1V2-02-017's rename/move handling - never creates a
+        second row."""
+        require_permission(actor, "devices:manage")
+        require_same_household(actor, household_id)
+
+        with self._uow_factory() as uow:
+            uow.devices.update(device_id, name=name, room_id=room_id)
+            uow.commit()
+
+        self._audit.record(
+            actor=actor,
+            action="device.room_and_name_assigned",
+            target_type="device",
+            target_id=device_id,
+            outcome="success",
+            metadata={"roomId": room_id, "name": name},
+        )

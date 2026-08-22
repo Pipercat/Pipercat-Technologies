@@ -75,3 +75,32 @@ def test_register_device_without_permission_is_denied(wiring):
         )
 
     assert audit.events == []
+
+
+# --- assign_room_and_name (S1V2-02-031) -------------------------------------
+
+
+def test_assign_room_and_name_updates_the_existing_device(wiring):
+    service, uow, audit = wiring
+    actor = make_actor("devices:manage")
+    device = service.register_device(
+        actor, household_id="hh-1", integration_id="int-1", external_id="light.kitchen", name="light.kitchen", device_type="light"
+    )
+
+    service.assign_room_and_name(actor, household_id="hh-1", device_id=device.id, room_id="room-1", name="Küchenlampe")
+
+    updated = uow.devices.list_by_household("hh-1")[0]
+    assert updated.name == "Küchenlampe"
+    assert updated.room_id == "room-1"
+    assert updated.id == device.id  # same row, not a new one
+    assert audit.events[-1]["action"] == "device.room_and_name_assigned"
+
+
+def test_assign_room_and_name_without_permission_is_denied(wiring):
+    service, _uow, audit = wiring
+    actor = make_actor()
+
+    with pytest.raises(AuthorizationError):
+        service.assign_room_and_name(actor, household_id="hh-1", device_id="device-1", room_id="room-1", name="Küchenlampe")
+
+    assert audit.events == []
